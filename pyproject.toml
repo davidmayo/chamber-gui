@@ -1,0 +1,26 @@
+[project]
+name = "chamber-gui"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "David Mayo", email = "dcmayo@moreheadstate.edu" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "dash>=4.0.0",
+    "pandas>=3.0.0",
+    "plotly>=6.5.2",
+]
+
+[project.scripts]
+chamber-gui = "chamber_gui:main"
+
+[build-system]
+requires = ["uv_build>=0.9.8,<0.10.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "matplotlib>=3.10.8",
+]
