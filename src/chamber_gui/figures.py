@@ -1,0 +1,286 @@
+"""Figure construction helpers."""
+
+from __future__ import annotations
+
+from typing import Iterable
+
+import pandas as pd
+import plotly.graph_objects as go
+
+from chamber_gui.models import CSV_COLUMNS, DashboardFigures
+
+
+def _empty_figure(title: str, message: str = "No data available") -> go.Figure:
+    fig = go.Figure()
+    fig.update_layout(
+        title=title,
+        annotations=[
+            {
+                "text": message,
+                "xref": "paper",
+                "yref": "paper",
+                "x": 0.5,
+                "y": 0.5,
+                "showarrow": False,
+            }
+        ],
+        xaxis={"visible": False},
+        yaxis={"visible": False},
+    )
+    return fig
+
+
+def _polar_figure(
+    data: pd.DataFrame,
+    theta_column: str,
+    r_column: str,
+    title: str,
+) -> go.Figure:
+    required = {theta_column, r_column}
+    if data.empty or not required.issubset(set(data.columns)):
+        return _empty_figure(title)
+
+    fig = go.Figure()
+    if CSV_COLUMNS["cut_id"] in data.columns:
+        for cut_id, subset in data.groupby(CSV_COLUMNS["cut_id"], dropna=False):
+            clean = subset[[theta_column, r_column]].dropna()
+            if clean.empty:
+                continue
+            fig.add_trace(
+                go.Scatterpolar(
+                    theta=clean[theta_column],
+                    r=clean[r_column],
+                    mode="markers",
+                    name=str(cut_id),
+                )
+            )
+    else:
+        clean = data[[theta_column, r_column]].dropna()
+        fig.add_trace(
+            go.Scatterpolar(theta=clean[theta_column], r=clean[r_column], mode="markers", name="data")
+        )
+    fig.update_layout(title=title, margin={"l": 24, "r": 24, "t": 48, "b": 24})
+    return fig
+
+
+def _path_figure(
+    data: pd.DataFrame,
+    x_column: str,
+    y_column: str,
+    title: str,
+    x_label: str,
+    y_label: str,
+) -> go.Figure:
+    required = {x_column, y_column}
+    if data.empty or not required.issubset(set(data.columns)):
+        return _empty_figure(title)
+
+    fig = go.Figure()
+    if CSV_COLUMNS["cut_id"] in data.columns:
+        for cut_id, subset in data.groupby(CSV_COLUMNS["cut_id"], dropna=False):
+            clean = subset[[x_column, y_column]].dropna()
+            if clean.empty:
+                continue
+            fig.add_trace(
+                go.Scatter(
+                    x=clean[x_column],
+                    y=clean[y_column],
+                    mode="lines+markers",
+                    name=str(cut_id),
+                )
+            )
+    else:
+        clean = data[[x_column, y_column]].dropna()
+        fig.add_trace(go.Scatter(x=clean[x_column], y=clean[y_column], mode="lines+markers", name="data"))
+
+    fig.update_layout(
+        title=title,
+        xaxis_title=x_label,
+        yaxis_title=y_label,
+        margin={"l": 40, "r": 24, "t": 48, "b": 40},
+    )
+    return fig
+
+
+def _time_series_figure(
+    data: pd.DataFrame,
+    y_columns: Iterable[str],
+    title: str,
+    y_label: str,
+) -> go.Figure:
+    timestamp_column = CSV_COLUMNS["timestamp"]
+    if data.empty or timestamp_column not in data.columns:
+        return _empty_figure(title)
+
+    fig = go.Figure()
+    for column in y_columns:
+        if column not in data.columns:
+            continue
+        clean = data[[timestamp_column, column]].dropna()
+        if clean.empty:
+            continue
+        fig.add_trace(go.Scatter(x=clean[timestamp_column], y=clean[column], mode="lines", name=column))
+
+    if not fig.data:
+        return _empty_figure(title)
+
+    fig.update_layout(
+        title=title,
+        xaxis_title="Time (UTC)",
+        yaxis_title=y_label,
+        margin={"l": 48, "r": 24, "t": 48, "b": 40},
+    )
+    return fig
+
+
+def _heatmap_figure(
+    data: pd.DataFrame,
+    x_column: str,
+    y_column: str,
+    z_column: str,
+    title: str,
+    x_label: str,
+    y_label: str,
+) -> go.Figure:
+    required = {x_column, y_column, z_column}
+    if data.empty or not required.issubset(set(data.columns)):
+        return _empty_figure(title)
+
+    clean = data[[x_column, y_column, z_column]].dropna()
+    if clean.empty:
+        return _empty_figure(title)
+
+    binned = clean.copy()
+    binned[x_column] = binned[x_column].round(0)
+    binned[y_column] = binned[y_column].round(0)
+    pivot = binned.pivot_table(
+        index=y_column,
+        columns=x_column,
+        values=z_column,
+        aggfunc="mean",
+    )
+    if pivot.empty:
+        return _empty_figure(title)
+
+    fig = go.Figure(
+        data=go.Heatmap(
+            z=pivot.values,
+            x=pivot.columns.to_list(),
+            y=pivot.index.to_list(),
+            colorbar={"title": z_column},
+        )
+    )
+    fig.update_layout(
+        title=title,
+        xaxis_title=x_label,
+        yaxis_title=y_label,
+        margin={"l": 48, "r": 24, "t": 48, "b": 40},
+    )
+    return fig
+
+
+def build_dashboard_figures(data: pd.DataFrame) -> DashboardFigures:
+    """Builds all dashboard figures from a DataFrame."""
+    return DashboardFigures(
+        az_peak=_polar_figure(
+            data=data,
+            theta_column=CSV_COLUMNS["commanded_azimuth"],
+            r_column=CSV_COLUMNS["peak_power_dbm"],
+            title="Azimuth Peak Power",
+        ),
+        az_center=_polar_figure(
+            data=data,
+            theta_column=CSV_COLUMNS["commanded_azimuth"],
+            r_column=CSV_COLUMNS["center_power_dbm"],
+            title="Azimuth Center Power",
+        ),
+        el_peak=_polar_figure(
+            data=data,
+            theta_column=CSV_COLUMNS["commanded_elevation"],
+            r_column=CSV_COLUMNS["peak_power_dbm"],
+            title="Elevation Peak Power",
+        ),
+        path_pan_tilt=_path_figure(
+            data=data,
+            x_column=CSV_COLUMNS["commanded_pan"],
+            y_column=CSV_COLUMNS["commanded_tilt"],
+            title="Path of Travel (Pan/Tilt)",
+            x_label="Pan (deg)",
+            y_label="Tilt (deg)",
+        ),
+        power_time=_time_series_figure(
+            data=data,
+            y_columns=(CSV_COLUMNS["peak_power_dbm"], CSV_COLUMNS["center_power_dbm"]),
+            title="Power vs Time",
+            y_label="Power (dBm)",
+        ),
+        pan_peak=_polar_figure(
+            data=data,
+            theta_column=CSV_COLUMNS["commanded_pan"],
+            r_column=CSV_COLUMNS["peak_power_dbm"],
+            title="Pan Peak Power",
+        ),
+        pan_center=_polar_figure(
+            data=data,
+            theta_column=CSV_COLUMNS["commanded_pan"],
+            r_column=CSV_COLUMNS["center_power_dbm"],
+            title="Pan Center Power",
+        ),
+        tilt_peak=_polar_figure(
+            data=data,
+            theta_column=CSV_COLUMNS["commanded_tilt"],
+            r_column=CSV_COLUMNS["peak_power_dbm"],
+            title="Tilt Peak Power",
+        ),
+        path_az_el=_path_figure(
+            data=data,
+            x_column=CSV_COLUMNS["commanded_azimuth"],
+            y_column=CSV_COLUMNS["commanded_elevation"],
+            title="Path of Travel (Az/El)",
+            x_label="Azimuth (deg)",
+            y_label="Elevation (deg)",
+        ),
+        freq_time=_time_series_figure(
+            data=data,
+            y_columns=(CSV_COLUMNS["peak_frequency_hz"], CSV_COLUMNS["center_frequency_hz"]),
+            title="Frequency vs Time",
+            y_label="Frequency (Hz)",
+        ),
+        az_el_peak_heat=_heatmap_figure(
+            data=data,
+            x_column=CSV_COLUMNS["commanded_azimuth"],
+            y_column=CSV_COLUMNS["commanded_elevation"],
+            z_column=CSV_COLUMNS["peak_power_dbm"],
+            title="Az/El Peak Power Heatmap",
+            x_label="Azimuth (deg)",
+            y_label="Elevation (deg)",
+        ),
+        az_el_center_heat=_heatmap_figure(
+            data=data,
+            x_column=CSV_COLUMNS["commanded_azimuth"],
+            y_column=CSV_COLUMNS["commanded_elevation"],
+            z_column=CSV_COLUMNS["center_power_dbm"],
+            title="Az/El Center Power Heatmap",
+            x_label="Azimuth (deg)",
+            y_label="Elevation (deg)",
+        ),
+        pan_tilt_peak_heat=_heatmap_figure(
+            data=data,
+            x_column=CSV_COLUMNS["commanded_pan"],
+            y_column=CSV_COLUMNS["commanded_tilt"],
+            z_column=CSV_COLUMNS["peak_power_dbm"],
+            title="Pan/Tilt Peak Power Heatmap",
+            x_label="Pan (deg)",
+            y_label="Tilt (deg)",
+        ),
+        pan_tilt_center_heat=_heatmap_figure(
+            data=data,
+            x_column=CSV_COLUMNS["commanded_pan"],
+            y_column=CSV_COLUMNS["commanded_tilt"],
+            z_column=CSV_COLUMNS["center_power_dbm"],
+            title="Pan/Tilt Center Power Heatmap",
+            x_label="Pan (deg)",
+            y_label="Tilt (deg)",
+        ),
+    )
+
