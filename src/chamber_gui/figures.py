@@ -68,7 +68,7 @@ def _polar_figure(
         fig.add_trace(
             go.Scatterpolar(theta=clean[theta_column], r=clean[r_column], mode="markers", name="data")
         )
-    angularaxis: dict[str, object] = {"dtick": 30, "showticklabels": False}
+    angularaxis: dict[str, object] = {"dtick": 30, "showticklabels": False, "layer": "below traces"}
     if compass_orientation:
         angularaxis["rotation"] = 90
         angularaxis["direction"] = "clockwise"
@@ -76,7 +76,10 @@ def _polar_figure(
     fig.update_layout(
         title=title,
         margin={"l": 24, "r": 24, "t": 48, "b": 24},
-        polar={"angularaxis": angularaxis, "radialaxis": {"rangemode": "normal"}},
+        polar={
+            "angularaxis": angularaxis,
+            "radialaxis": {"rangemode": "normal", "layer": "below traces"},
+        },
         legend=_LEGEND_TOP,
     )
     return fig
@@ -114,6 +117,8 @@ def _path_figure(
         title=title,
         margin={"l": 40, "r": 24, "t": 48, "b": 40},
         legend=_LEGEND_TOP,
+        xaxis={"layer": "below traces"},
+        yaxis={"layer": "below traces"},
     )
     return fig
 
@@ -143,6 +148,8 @@ def _time_series_figure(
         title=title,
         margin={"l": 48, "r": 24, "t": 48, "b": 40},
         legend=_LEGEND_TOP,
+        xaxis={"layer": "below traces"},
+        yaxis={"layer": "below traces"},
     )
     return fig
 
