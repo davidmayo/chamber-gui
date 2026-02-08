@@ -9,6 +9,11 @@ import plotly.graph_objects as go
 
 from chamber_gui.models import CSV_COLUMNS, DashboardFigures
 
+_PLOTLY_COLORS = [
+    "#636EFA", "#EF553B", "#00CC96", "#AB63FA", "#FFA15A",
+    "#19D3F3", "#FF6692", "#B6E880", "#FF97FF", "#FECB52",
+]
+
 _GRID_COLOR = "#ddd"
 _GRID_MINOR_WIDTH = 1
 _GRID_MAJOR_WIDTH = 3
@@ -94,9 +99,10 @@ def _polar_figure(
         return _empty_figure(title)
 
     # Collect data traces first so we can compute r bounds for major gridlines.
+    # Assign explicit colors so gridline traces don't shift the color cycle.
     data_traces: list[go.Scatterpolar] = []
     if CSV_COLUMNS["cut_id"] in data.columns:
-        for cut_id, subset in data.groupby(CSV_COLUMNS["cut_id"], dropna=False):
+        for i, (cut_id, subset) in enumerate(data.groupby(CSV_COLUMNS["cut_id"], dropna=False)):
             clean = subset[[theta_column, r_column]].dropna()
             if clean.empty:
                 continue
@@ -106,12 +112,16 @@ def _polar_figure(
                     r=clean[r_column],
                     mode="markers",
                     name=str(cut_id),
+                    marker={"color": _PLOTLY_COLORS[i % len(_PLOTLY_COLORS)]},
                 )
             )
     else:
         clean = data[[theta_column, r_column]].dropna()
         data_traces.append(
-            go.Scatterpolar(theta=clean[theta_column], r=clean[r_column], mode="markers", name="data")
+            go.Scatterpolar(
+                theta=clean[theta_column], r=clean[r_column], mode="markers", name="data",
+                marker={"color": _PLOTLY_COLORS[0]},
+            )
         )
 
     # Compute r bounds from data for major gridline extent.
