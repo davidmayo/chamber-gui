@@ -6,7 +6,8 @@ from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
-from dash import Dash, Input, Output, State, clientside_callback, dcc, html
+import dash
+from dash import Dash, Input, Output, State, clientside_callback, ctx, dcc, html
 
 from chamber_gui.data_loader import SnapshotCache, get_latest_snapshot
 from chamber_gui.figures import build_dashboard_figures
@@ -14,6 +15,7 @@ from chamber_gui.models import (
     CSV_COLUMNS,
     CUT_MODES,
     DEFAULT_CUT_MODE,
+    GRAPH_IDS,
     PANEL_IDS,
     PANEL_LABELS,
 )
@@ -188,12 +190,17 @@ def create_app(csv_path: Path, poll_interval_ms: int = 1000) -> Dash:
         Output("panel-info", "children"),
         Input("poll-interval", "n_intervals"),
         Input("cut-mode", "data"),
+        Input("graph-config", "data"),
     )
-    def _refresh(_interval: int, cut_mode_data: str | None):
+    def _refresh(_interval: int, cut_mode_data: str | None, _config_data: object):
         cut_mode = cut_mode_data if cut_mode_data in CUT_MODES else DEFAULT_CUT_MODE
         snapshot = get_latest_snapshot(cache=cache, csv_path=csv_path)
-        figures = build_dashboard_figures(snapshot.data, cut_mode=cut_mode)
         info_panel = _build_info_panel(snapshot=snapshot)
+
+        if not snapshot.data_changed and ctx.triggered_id == "poll-interval":
+            return (*(dash.no_update for _ in GRAPH_IDS), info_panel)
+
+        figures = build_dashboard_figures(snapshot.data, cut_mode=cut_mode)
         return (
             figures.az_peak,
             figures.az_center,

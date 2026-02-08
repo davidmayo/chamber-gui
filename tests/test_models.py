@@ -42,6 +42,7 @@ def test_csv_snapshot_is_frozen_dataclass() -> None:
         parse_errors_count=0,
         last_update_time=datetime(2026, 2, 8, tzinfo=UTC),
         warning=None,
+        data_changed=False,
     )
     with pytest.raises(FrozenInstanceError):
         snapshot.rows_loaded = 1  # type: ignore[misc]

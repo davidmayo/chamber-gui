@@ -156,6 +156,7 @@ def test_build_info_panel_includes_latest_row_details() -> None:
         parse_errors_count=0,
         last_update_time=datetime(2026, 2, 8, 12, 0, tzinfo=UTC),
         warning=None,
+        data_changed=True,
     )
     info = _build_info_panel(snapshot)
     assert info[0].children == "Run Info"
