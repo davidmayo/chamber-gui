@@ -9,16 +9,21 @@ import plotly.graph_objects as go
 
 from chamber_gui.models import CSV_COLUMNS, DashboardFigures
 
+_GRID_COLOR = "#ddd"
+_GRID_MINOR_WIDTH = 1
+_GRID_MAJOR_WIDTH = 3
+
+
 def _degree_axis(extra: dict[str, object] | None = None) -> dict[str, object]:
-    """Returns a cartesian axis config with 15-deg minor (dashed) gridlines and labels at 45-deg."""
+    """Returns a cartesian axis config with 15-deg gridlines and labels at 45-deg."""
     tick_vals = list(range(-180, 181, 15))
     tick_text = [f"{v}°" if v % 45 == 0 else "" for v in tick_vals]
     axis: dict[str, object] = {
         "tickmode": "array",
         "tickvals": tick_vals,
         "ticktext": tick_text,
-        "griddash": "dot",
-        "gridwidth": 1,
+        "gridcolor": _GRID_COLOR,
+        "gridwidth": _GRID_MINOR_WIDTH,
         "layer": "below traces",
     }
     if extra:
@@ -27,14 +32,14 @@ def _degree_axis(extra: dict[str, object] | None = None) -> dict[str, object]:
 
 
 def _add_degree_grid_shapes(fig: go.Figure, x_vals: list[float], y_vals: list[float]) -> None:
-    """Adds solid major gridline shapes at 45-degree intervals on both axes."""
+    """Adds thicker major gridline shapes at 45-degree intervals on both axes."""
     for x in range(-180, 181, 45):
         if x < min(x_vals) - 15 or x > max(x_vals) + 15:
             continue
         fig.add_shape(
             type="line", x0=x, x1=x, y0=0, y1=1,
             xref="x", yref="y domain",
-            line={"color": "#eee", "width": 2},
+            line={"color": _GRID_COLOR, "width": _GRID_MAJOR_WIDTH},
             layer="below",
         )
     for y in range(-180, 181, 45):
@@ -43,7 +48,7 @@ def _add_degree_grid_shapes(fig: go.Figure, x_vals: list[float], y_vals: list[fl
         fig.add_shape(
             type="line", x0=0, x1=1, y0=y, y1=y,
             xref="x domain", yref="y",
-            line={"color": "#eee", "width": 2},
+            line={"color": _GRID_COLOR, "width": _GRID_MAJOR_WIDTH},
             layer="below",
         )
 
@@ -124,7 +129,7 @@ def _polar_figure(
                 r=r_bounds,
                 theta=[angle, angle],
                 mode="lines",
-                line={"color": "#eee", "width": 2},
+                line={"color": _GRID_COLOR, "width": _GRID_MAJOR_WIDTH},
                 showlegend=False,
                 hoverinfo="skip",
             )
@@ -141,8 +146,8 @@ def _polar_figure(
         "tickmode": "array",
         "tickvals": tick_vals,
         "ticktext": tick_text,
-        "gridwidth": 1,
-        "griddash": "dot",
+        "gridcolor": _GRID_COLOR,
+        "gridwidth": _GRID_MINOR_WIDTH,
         "layer": "below traces",
     }
     if compass_orientation:
@@ -154,7 +159,12 @@ def _polar_figure(
         margin={"l": 24, "r": 24, "t": 48, "b": 24},
         polar={
             "angularaxis": angularaxis,
-            "radialaxis": {"rangemode": "normal", "layer": "below traces"},
+            "radialaxis": {
+                "rangemode": "normal",
+                "layer": "below traces",
+                "gridcolor": _GRID_COLOR,
+                "gridwidth": _GRID_MINOR_WIDTH,
+            },
         },
         legend=_LEGEND,
     )
