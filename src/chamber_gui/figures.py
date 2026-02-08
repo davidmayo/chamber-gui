@@ -68,7 +68,14 @@ def _polar_figure(
         fig.add_trace(
             go.Scatterpolar(theta=clean[theta_column], r=clean[r_column], mode="markers", name="data")
         )
-    angularaxis: dict[str, object] = {"dtick": 30, "showticklabels": False, "layer": "below traces"}
+    tick_vals = list(range(0, 360, 15))
+    tick_text = [f"{v}°" if v % 45 == 0 else "" for v in tick_vals]
+    angularaxis: dict[str, object] = {
+        "tickmode": "array",
+        "tickvals": tick_vals,
+        "ticktext": tick_text,
+        "layer": "below traces",
+    }
     if compass_orientation:
         angularaxis["rotation"] = 90
         angularaxis["direction"] = "clockwise"

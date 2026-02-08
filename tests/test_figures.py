@@ -35,8 +35,10 @@ def test_polar_compass_orientation_applies_to_azimuth_and_pan_only() -> None:
     assert figures.tilt_peak.layout.polar.angularaxis.direction is None
 
     for fig in (figures.az_peak, figures.el_peak, figures.pan_peak, figures.tilt_peak):
-        assert fig.layout.polar.angularaxis.dtick == 30
-        assert fig.layout.polar.angularaxis.showticklabels is False
+        assert fig.layout.polar.angularaxis.tickmode == "array"
+        assert len(fig.layout.polar.angularaxis.tickvals) == 24  # every 15 degrees
+        labeled = [t for t in fig.layout.polar.angularaxis.ticktext if t]
+        assert len(labeled) == 8  # labels every 45 degrees
 
 
 def test_build_dashboard_figures_with_empty_data() -> None:
