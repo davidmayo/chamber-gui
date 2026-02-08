@@ -58,6 +58,26 @@ GRAPH_IDS = (
     "pan-tilt-center-heat",
 )
 
+PANEL_IDS = (*GRAPH_IDS, "info")
+
+PANEL_LABELS = {
+    "az-peak": "Azimuth Peak Power",
+    "az-center": "Azimuth Center Power",
+    "el-peak": "Elevation Peak Power",
+    "path-pan-tilt": "Path of Travel (Pan/Tilt)",
+    "power-time": "Power vs Time",
+    "pan-peak": "Pan Peak Power",
+    "pan-center": "Pan Center Power",
+    "tilt-peak": "Tilt Peak Power",
+    "path-az-el": "Path of Travel (Az/El)",
+    "freq-time": "Frequency vs Time",
+    "az-el-peak-heat": "Az/El Peak Power Heatmap",
+    "az-el-center-heat": "Az/El Center Power Heatmap",
+    "pan-tilt-peak-heat": "Pan/Tilt Peak Power Heatmap",
+    "pan-tilt-center-heat": "Pan/Tilt Center Power Heatmap",
+    "info": "Run Info",
+}
+
 
 @dataclass(frozen=True)
 class CsvSnapshot:
