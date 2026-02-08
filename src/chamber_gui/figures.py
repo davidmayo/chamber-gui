@@ -231,6 +231,7 @@ def _heatmap_figure(
     fig.update_layout(
         title=title,
         margin={"l": 48, "r": 24, "t": 48, "b": 40},
+        yaxis={"scaleanchor": "x"},
     )
     return fig
 
