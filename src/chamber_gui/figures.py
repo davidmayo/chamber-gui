@@ -35,6 +35,7 @@ def _polar_figure(
     theta_column: str,
     r_column: str,
     title: str,
+    compass_orientation: bool = False,
 ) -> go.Figure:
     required = {theta_column, r_column}
     if data.empty or not required.issubset(set(data.columns)):
@@ -59,7 +60,15 @@ def _polar_figure(
         fig.add_trace(
             go.Scatterpolar(theta=clean[theta_column], r=clean[r_column], mode="markers", name="data")
         )
-    fig.update_layout(title=title, margin={"l": 24, "r": 24, "t": 48, "b": 24})
+    angularaxis: dict[str, object] = {}
+    if compass_orientation:
+        angularaxis = {"rotation": 90, "direction": "clockwise"}
+
+    fig.update_layout(
+        title=title,
+        margin={"l": 24, "r": 24, "t": 48, "b": 24},
+        polar={"angularaxis": angularaxis},
+    )
     return fig
 
 
@@ -187,12 +196,14 @@ def build_dashboard_figures(data: pd.DataFrame) -> DashboardFigures:
             theta_column=CSV_COLUMNS["commanded_azimuth"],
             r_column=CSV_COLUMNS["peak_power_dbm"],
             title="Azimuth Peak Power",
+            compass_orientation=True,
         ),
         az_center=_polar_figure(
             data=data,
             theta_column=CSV_COLUMNS["commanded_azimuth"],
             r_column=CSV_COLUMNS["center_power_dbm"],
             title="Azimuth Center Power",
+            compass_orientation=True,
         ),
         el_peak=_polar_figure(
             data=data,
@@ -219,12 +230,14 @@ def build_dashboard_figures(data: pd.DataFrame) -> DashboardFigures:
             theta_column=CSV_COLUMNS["commanded_pan"],
             r_column=CSV_COLUMNS["peak_power_dbm"],
             title="Pan Peak Power",
+            compass_orientation=True,
         ),
         pan_center=_polar_figure(
             data=data,
             theta_column=CSV_COLUMNS["commanded_pan"],
             r_column=CSV_COLUMNS["center_power_dbm"],
             title="Pan Center Power",
+            compass_orientation=True,
         ),
         tilt_peak=_polar_figure(
             data=data,
