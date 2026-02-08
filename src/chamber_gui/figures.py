@@ -9,53 +9,20 @@ import plotly.graph_objects as go
 
 from chamber_gui.models import CSV_COLUMNS, DashboardFigures
 
-_PLOTLY_COLORS = [
-    "#636EFA", "#EF553B", "#00CC96", "#AB63FA", "#FFA15A",
-    "#19D3F3", "#FF6692", "#B6E880", "#FF97FF", "#FECB52",
-]
-
-_GRID_COLOR = "#ddd"
-_GRID_MINOR_WIDTH = 1
-_GRID_MAJOR_WIDTH = 3
-
 
 def _degree_axis(extra: dict[str, object] | None = None) -> dict[str, object]:
-    """Returns a cartesian axis config with 15-deg gridlines and labels at 45-deg."""
+    """Returns a cartesian axis config with gridlines and labels at 15-deg intervals."""
     tick_vals = list(range(-180, 181, 15))
     tick_text = [f"{v}°" if v % 45 == 0 else "" for v in tick_vals]
     axis: dict[str, object] = {
         "tickmode": "array",
         "tickvals": tick_vals,
         "ticktext": tick_text,
-        "gridcolor": _GRID_COLOR,
-        "gridwidth": _GRID_MINOR_WIDTH,
         "layer": "below traces",
     }
     if extra:
         axis.update(extra)
     return axis
-
-
-def _add_degree_grid_shapes(fig: go.Figure, x_vals: list[float], y_vals: list[float]) -> None:
-    """Adds thicker major gridline shapes at 45-degree intervals on both axes."""
-    for x in range(-180, 181, 45):
-        if x < min(x_vals) - 15 or x > max(x_vals) + 15:
-            continue
-        fig.add_shape(
-            type="line", x0=x, x1=x, y0=0, y1=1,
-            xref="x", yref="y domain",
-            line={"color": _GRID_COLOR, "width": _GRID_MAJOR_WIDTH},
-            layer="below",
-        )
-    for y in range(-180, 181, 45):
-        if y < min(y_vals) - 15 or y > max(y_vals) + 15:
-            continue
-        fig.add_shape(
-            type="line", x0=0, x1=1, y0=y, y1=y,
-            xref="x domain", yref="y",
-            line={"color": _GRID_COLOR, "width": _GRID_MAJOR_WIDTH},
-            layer="below",
-        )
 
 
 _LEGEND: dict[str, object] = {
@@ -98,54 +65,25 @@ def _polar_figure(
     if data.empty or not required.issubset(set(data.columns)):
         return _empty_figure(title)
 
-    # Collect data traces first so we can compute r bounds for major gridlines.
-    # Assign explicit colors so gridline traces don't shift the color cycle.
-    data_traces: list[go.Scatterpolar] = []
+    fig = go.Figure()
     if CSV_COLUMNS["cut_id"] in data.columns:
-        for i, (cut_id, subset) in enumerate(data.groupby(CSV_COLUMNS["cut_id"], dropna=False)):
+        for cut_id, subset in data.groupby(CSV_COLUMNS["cut_id"], dropna=False):
             clean = subset[[theta_column, r_column]].dropna()
             if clean.empty:
                 continue
-            data_traces.append(
+            fig.add_trace(
                 go.Scatterpolar(
                     theta=clean[theta_column],
                     r=clean[r_column],
                     mode="markers",
                     name=str(cut_id),
-                    marker={"color": _PLOTLY_COLORS[i % len(_PLOTLY_COLORS)]},
                 )
             )
     else:
         clean = data[[theta_column, r_column]].dropna()
-        data_traces.append(
-            go.Scatterpolar(
-                theta=clean[theta_column], r=clean[r_column], mode="markers", name="data",
-                marker={"color": _PLOTLY_COLORS[0]},
-            )
-        )
-
-    # Compute r bounds from data for major gridline extent.
-    all_r = pd.concat([
-        trace.r if isinstance(trace.r, pd.Series) else pd.Series(trace.r)
-        for trace in data_traces
-    ])
-    r_bounds = [float(all_r.min()), float(all_r.max())]
-
-    # Build figure: major gridlines first (drawn below), then data traces on top.
-    fig = go.Figure()
-    for angle in range(0, 360, 45):
         fig.add_trace(
-            go.Scatterpolar(
-                r=r_bounds,
-                theta=[angle, angle],
-                mode="lines",
-                line={"color": _GRID_COLOR, "width": _GRID_MAJOR_WIDTH},
-                showlegend=False,
-                hoverinfo="skip",
-            )
+            go.Scatterpolar(theta=clean[theta_column], r=clean[r_column], mode="markers", name="data")
         )
-    for trace in data_traces:
-        fig.add_trace(trace)
 
     tick_vals = list(range(0, 360, 15))
     tick_text = [
@@ -156,8 +94,6 @@ def _polar_figure(
         "tickmode": "array",
         "tickvals": tick_vals,
         "ticktext": tick_text,
-        "gridcolor": _GRID_COLOR,
-        "gridwidth": _GRID_MINOR_WIDTH,
         "layer": "below traces",
     }
     if compass_orientation:
@@ -169,12 +105,7 @@ def _polar_figure(
         margin={"l": 24, "r": 24, "t": 48, "b": 24},
         polar={
             "angularaxis": angularaxis,
-            "radialaxis": {
-                "rangemode": "normal",
-                "layer": "below traces",
-                "gridcolor": _GRID_COLOR,
-                "gridwidth": _GRID_MINOR_WIDTH,
-            },
+            "radialaxis": {"rangemode": "normal", "layer": "below traces"},
         },
         legend=_LEGEND,
     )
@@ -209,8 +140,6 @@ def _path_figure(
         clean = data[[x_column, y_column]].dropna()
         fig.add_trace(go.Scatter(x=clean[x_column], y=clean[y_column], mode="lines+markers", name="data"))
 
-    all_x = pd.concat([pd.Series(t.x) for t in fig.data]).dropna()
-    all_y = pd.concat([pd.Series(t.y) for t in fig.data]).dropna()
     fig.update_layout(
         title=title,
         margin={"l": 40, "r": 24, "t": 48, "b": 40},
@@ -218,7 +147,6 @@ def _path_figure(
         xaxis=_degree_axis(),
         yaxis=_degree_axis({"scaleanchor": "x"}),
     )
-    _add_degree_grid_shapes(fig, all_x.to_list(), all_y.to_list())
     return fig
 
 
@@ -296,7 +224,6 @@ def _heatmap_figure(
         xaxis=_degree_axis(),
         yaxis=_degree_axis({"scaleanchor": "x"}),
     )
-    _add_degree_grid_shapes(fig, pivot.columns.to_list(), pivot.index.to_list())
     return fig
 
 
@@ -394,4 +321,3 @@ def build_dashboard_figures(data: pd.DataFrame) -> DashboardFigures:
             title="Pan/Tilt Center Power Heatmap",
         ),
     )
-
