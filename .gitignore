@@ -1,3 +1,6 @@
+.coverage
+**/geckodriver.log
+
 # Python-generated files
 __pycache__/
 *.py[oc]

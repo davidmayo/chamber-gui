@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Literal
 
 import pandas as pd
 import plotly.graph_objects as go
@@ -60,6 +62,12 @@ GRAPH_IDS = (
 
 PANEL_IDS = (*GRAPH_IDS, "info")
 
+CUT_MODES = ("auto-include", "auto-exclude", "all")
+DEFAULT_CUT_MODE = "auto-include"
+
+HORIZONTAL_POLAR_IDS = frozenset({"az-peak", "az-center", "pan-peak", "pan-center"})
+VERTICAL_POLAR_IDS = frozenset({"el-peak", "tilt-peak"})
+
 PANEL_LABELS = {
     "az-peak": "Azimuth Peak Power",
     "az-center": "Azimuth Center Power",
@@ -77,6 +85,17 @@ PANEL_LABELS = {
     "pan-tilt-center-heat": "Pan/Tilt Center Power Heatmap",
     "info": "Run Info",
 }
+
+
+def classify_cut(name: str) -> Literal["horizontal", "vertical", "indeterminate"]:
+    """Classifies a cut name as horizontal, vertical, or indeterminate."""
+    is_horizontal = bool(re.search(r"hor|az|pan", name, re.IGNORECASE))
+    is_vertical = bool(re.search(r"ver|el|tilt", name, re.IGNORECASE))
+    if is_horizontal == is_vertical:
+        return "indeterminate"
+    if is_horizontal:
+        return "horizontal"
+    return "vertical"
 
 
 @dataclass(frozen=True)
@@ -110,4 +129,3 @@ class DashboardFigures:
     az_el_center_heat: go.Figure
     pan_tilt_peak_heat: go.Figure
     pan_tilt_center_heat: go.Figure
-

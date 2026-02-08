@@ -148,7 +148,7 @@ APP_INDEX_TEMPLATE = """
                 background: var(--panel);
                 border-radius: 14px;
                 box-shadow: 0 12px 40px rgba(39, 64, 90, 0.28);
-                width: 420px;
+                width: 620px;
                 max-height: 80vh;
                 display: flex;
                 flex-direction: column;
@@ -265,6 +265,33 @@ APP_INDEX_TEMPLATE = """
                 flex: 1;
                 font-size: 0.95rem;
             }
+            /* ===== Cut mode selector (right modal column) ===== */
+            .modal-cut-mode {
+                display: flex;
+                flex-direction: column;
+                padding: 10px 14px;
+                border-left: 1px solid var(--line);
+                flex-shrink: 0;
+                min-width: 180px;
+            }
+            .cut-mode-title {
+                margin: 0 0 10px 0;
+                font-size: 0.9rem;
+                color: var(--accent);
+            }
+            .cut-mode-radio {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+            }
+            .cut-mode-option {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                font-size: 0.9rem;
+                color: var(--muted);
+                cursor: pointer;
+            }
             @media (max-width: 650px) {
                 .title {
                     font-size: 1.4rem;
@@ -282,4 +309,3 @@ APP_INDEX_TEMPLATE = """
     </body>
 </html>
 """
-

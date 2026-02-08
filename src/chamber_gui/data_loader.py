@@ -99,7 +99,11 @@ def get_latest_snapshot(cache: SnapshotCache, csv_path: Path) -> CsvSnapshot:
         cache.snapshot = fresh
         return fresh
 
-    if fresh.mtime is not None and fresh.mtime == cache.snapshot.mtime and fresh.data.empty:
+    if (
+        fresh.mtime is not None
+        and fresh.mtime == cache.snapshot.mtime
+        and fresh.data.empty
+    ):
         # Unchanged file. Keep last parsed dataset.
         return CsvSnapshot(
             data=cache.snapshot.data,
@@ -126,4 +130,3 @@ def get_latest_snapshot(cache: SnapshotCache, csv_path: Path) -> CsvSnapshot:
 
     cache.snapshot = fresh
     return fresh
-

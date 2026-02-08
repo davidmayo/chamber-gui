@@ -10,7 +10,13 @@ from dash import Dash, Input, Output, State, clientside_callback, dcc, html
 
 from chamber_gui.data_loader import SnapshotCache, get_latest_snapshot
 from chamber_gui.figures import build_dashboard_figures
-from chamber_gui.models import CSV_COLUMNS, PANEL_IDS, PANEL_LABELS
+from chamber_gui.models import (
+    CSV_COLUMNS,
+    CUT_MODES,
+    DEFAULT_CUT_MODE,
+    PANEL_IDS,
+    PANEL_LABELS,
+)
 from chamber_gui.theme import APP_INDEX_TEMPLATE
 
 
@@ -25,7 +31,13 @@ def _normalize_config(data: object) -> list[dict]:
     result = []
     for item in data:
         if isinstance(item, dict) and item.get("id") in set(PANEL_IDS):
-            result.append({"id": item["id"], "enabled": bool(item.get("enabled", True)), "order": int(item.get("order", 0))})
+            result.append(
+                {
+                    "id": item["id"],
+                    "enabled": bool(item.get("enabled", True)),
+                    "order": int(item.get("order", 0)),
+                }
+            )
     existing_ids = {item["id"] for item in result}
     next_order = max((item["order"] for item in result), default=-1) + 1
     for pid in PANEL_IDS:
@@ -38,10 +50,49 @@ def _normalize_config(data: object) -> list[dict]:
 
 _PANEL_GROUPS = [
     ("all", "All", list(PANEL_IDS)),
-    ("az-el", "Az/El", ["az-peak", "az-center", "el-peak", "az-el-peak-heat", "az-el-center-heat", "path-az-el"]),
-    ("pan-tilt", "Pan/Tilt", ["pan-peak", "pan-center", "tilt-peak", "pan-tilt-peak-heat", "pan-tilt-center-heat", "path-pan-tilt"]),
-    ("peak", "Peak Power", ["az-peak", "el-peak", "pan-peak", "tilt-peak", "az-el-peak-heat", "pan-tilt-peak-heat", "power-time", "freq-time"]),
-    ("center", "Center Power", ["az-center", "pan-center", "az-el-center-heat", "pan-tilt-center-heat"]),
+    (
+        "az-el",
+        "Az/El",
+        [
+            "az-peak",
+            "az-center",
+            "el-peak",
+            "az-el-peak-heat",
+            "az-el-center-heat",
+            "path-az-el",
+        ],
+    ),
+    (
+        "pan-tilt",
+        "Pan/Tilt",
+        [
+            "pan-peak",
+            "pan-center",
+            "tilt-peak",
+            "pan-tilt-peak-heat",
+            "pan-tilt-center-heat",
+            "path-pan-tilt",
+        ],
+    ),
+    (
+        "peak",
+        "Peak Power",
+        [
+            "az-peak",
+            "el-peak",
+            "pan-peak",
+            "tilt-peak",
+            "az-el-peak-heat",
+            "pan-tilt-peak-heat",
+            "power-time",
+            "freq-time",
+        ],
+    ),
+    (
+        "center",
+        "Center Power",
+        ["az-center", "pan-center", "az-el-center-heat", "pan-tilt-center-heat"],
+    ),
 ]
 
 
@@ -74,7 +125,9 @@ def _build_modal_items(config: list[dict]) -> list:
     for item in config:
         pid = item["id"]
         label = PANEL_LABELS.get(pid, pid)
-        cb_class = "modal-checkbox modal-checkbox--on" if item["enabled"] else "modal-checkbox"
+        cb_class = (
+            "modal-checkbox modal-checkbox--on" if item["enabled"] else "modal-checkbox"
+        )
         items.append(
             html.Div(
                 className="modal-item",
@@ -89,9 +142,30 @@ def _build_modal_items(config: list[dict]) -> list:
     return items
 
 
+def _build_cut_mode_selector(current_mode: str) -> html.Div:
+    """Builds the polar cut mode radio selector for the modal."""
+    return html.Div(
+        className="modal-cut-mode",
+        children=[
+            html.H4("Polar Cut Selection", className="cut-mode-title"),
+            dcc.RadioItems(
+                id="cut-mode-radio",
+                options=[
+                    {"label": "Auto (include unknown)", "value": "auto-include"},
+                    {"label": "Auto (exclude unknown)", "value": "auto-exclude"},
+                    {"label": "All", "value": "all"},
+                ],
+                value=current_mode,
+                className="cut-mode-radio",
+                labelClassName="cut-mode-option",
+            ),
+        ],
+    )
+
+
 def create_app(csv_path: Path, poll_interval_ms: int = 1000) -> Dash:
     """Creates and configures the Dash app."""
-    app = Dash(__name__, update_title=None)
+    app = Dash(__name__, update_title=None, suppress_callback_exceptions=True)
     app.index_string = APP_INDEX_TEMPLATE
     app.layout = _build_layout(poll_interval_ms=poll_interval_ms)
     cache = SnapshotCache()
@@ -113,10 +187,12 @@ def create_app(csv_path: Path, poll_interval_ms: int = 1000) -> Dash:
         Output("pan-tilt-center-heat", "figure"),
         Output("panel-info", "children"),
         Input("poll-interval", "n_intervals"),
+        Input("cut-mode", "data"),
     )
-    def _refresh(_: int):
+    def _refresh(_interval: int, cut_mode_data: str | None):
+        cut_mode = cut_mode_data if cut_mode_data in CUT_MODES else DEFAULT_CUT_MODE
         snapshot = get_latest_snapshot(cache=cache, csv_path=csv_path)
-        figures = build_dashboard_figures(snapshot.data)
+        figures = build_dashboard_figures(snapshot.data, cut_mode=cut_mode)
         info_panel = _build_info_panel(snapshot=snapshot)
         return (
             figures.az_peak,
@@ -153,13 +229,16 @@ def create_app(csv_path: Path, poll_interval_ms: int = 1000) -> Dash:
         Output("hamburger-dropdown", "className", allow_duplicate=True),
         Input("open-config-btn", "n_clicks"),
         State("graph-config", "data"),
+        State("cut-mode", "data"),
         prevent_initial_call=True,
     )
-    def _open_modal(_, config_data):
+    def _open_modal(_, config_data, cut_mode_data):
         config = _normalize_config(config_data)
+        current_mode = cut_mode_data if cut_mode_data in CUT_MODES else DEFAULT_CUT_MODE
         modal_content = [
             _build_modal_groups(config),
             html.Div(className="modal-items", children=_build_modal_items(config)),
+            _build_cut_mode_selector(current_mode),
         ]
         return "modal-overlay", modal_content, "hamburger-dropdown hidden"
 
@@ -170,6 +249,14 @@ def create_app(csv_path: Path, poll_interval_ms: int = 1000) -> Dash:
     )
     def _close_modal(_):
         return "modal-overlay hidden"
+
+    @app.callback(
+        Output("cut-mode", "data"),
+        Input("cut-mode-radio", "value"),
+        prevent_initial_call=True,
+    )
+    def _update_cut_mode(value):
+        return value
 
     clientside_callback(
         """
@@ -198,7 +285,9 @@ def create_app(csv_path: Path, poll_interval_ms: int = 1000) -> Dash:
             if not item["enabled"]:
                 style["display"] = "none"
             style_by_id[item["id"]] = style
-        return tuple(style_by_id.get(pid, {"order": i}) for i, pid in enumerate(PANEL_IDS))
+        return tuple(
+            style_by_id.get(pid, {"order": i}) for i, pid in enumerate(PANEL_IDS)
+        )
 
     return app
 
@@ -216,7 +305,11 @@ def _build_layout(poll_interval_ms: int) -> html.Div:
                         id="hamburger-dropdown",
                         className="hamburger-dropdown hidden",
                         children=[
-                            html.Button("Select Graphs", id="open-config-btn", className="dropdown-item"),
+                            html.Button(
+                                "Select Graphs",
+                                id="open-config-btn",
+                                className="dropdown-item",
+                            ),
                         ],
                     ),
                 ],
@@ -232,7 +325,11 @@ def _build_layout(poll_interval_ms: int) -> html.Div:
                                 className="modal-header",
                                 children=[
                                     html.H3("Configure Graphs"),
-                                    html.Button("Done", id="close-config-btn", className="modal-close-btn"),
+                                    html.Button(
+                                        "Done",
+                                        id="close-config-btn",
+                                        className="modal-close-btn",
+                                    ),
                                 ],
                             ),
                             html.Div(id="modal-body", className="modal-body"),
@@ -263,6 +360,7 @@ def _build_layout(poll_interval_ms: int) -> html.Div:
             ),
             html.Button(id="config-sync-btn", style={"display": "none"}, n_clicks=0),
             dcc.Store(id="graph-config", storage_type="memory", data=_default_config()),
+            dcc.Store(id="cut-mode", storage_type="local", data=DEFAULT_CUT_MODE),
             dcc.Interval(id="poll-interval", interval=poll_interval_ms, n_intervals=0),
         ],
     )
@@ -285,10 +383,16 @@ def _build_info_panel(snapshot) -> list:
                 html.Li(f"File exists: {snapshot.file_exists}"),
                 html.Li(f"Rows loaded: {snapshot.rows_loaded}"),
                 html.Li(f"Parse errors: {snapshot.parse_errors_count}"),
-                html.Li(f"Last refresh: {_format_timestamp(snapshot.last_update_time)}"),
-                html.Li(f"Latest timestamp: {_format_timestamp(latest_row.get(CSV_COLUMNS['timestamp']))}"),
+                html.Li(
+                    f"Last refresh: {_format_timestamp(snapshot.last_update_time)}"
+                ),
+                html.Li(
+                    f"Latest timestamp: {_format_timestamp(latest_row.get(CSV_COLUMNS['timestamp']))}"
+                ),
                 html.Li(f"Latest cut: {latest_row.get(CSV_COLUMNS['cut_id'], 'N/A')}"),
-                html.Li(f"Latest peak power (dBm): {_format_number(latest_row.get(CSV_COLUMNS['peak_power_dbm']))}"),
+                html.Li(
+                    f"Latest peak power (dBm): {_format_number(latest_row.get(CSV_COLUMNS['peak_power_dbm']))}"
+                ),
                 html.Li(
                     "Latest center power (dBm): "
                     f"{_format_number(latest_row.get(CSV_COLUMNS['center_power_dbm']))}"
