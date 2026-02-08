@@ -78,8 +78,6 @@ def _path_figure(
     x_column: str,
     y_column: str,
     title: str,
-    x_label: str,
-    y_label: str,
 ) -> go.Figure:
     required = {x_column, y_column}
     if data.empty or not required.issubset(set(data.columns)):
@@ -105,8 +103,6 @@ def _path_figure(
 
     fig.update_layout(
         title=title,
-        xaxis_title=x_label,
-        yaxis_title=y_label,
         margin={"l": 40, "r": 24, "t": 48, "b": 40},
     )
     return fig
@@ -116,7 +112,6 @@ def _time_series_figure(
     data: pd.DataFrame,
     y_columns: Iterable[str],
     title: str,
-    y_label: str,
 ) -> go.Figure:
     timestamp_column = CSV_COLUMNS["timestamp"]
     if data.empty or timestamp_column not in data.columns:
@@ -136,8 +131,6 @@ def _time_series_figure(
 
     fig.update_layout(
         title=title,
-        xaxis_title="Time (UTC)",
-        yaxis_title=y_label,
         margin={"l": 48, "r": 24, "t": 48, "b": 40},
     )
     return fig
@@ -149,8 +142,6 @@ def _heatmap_figure(
     y_column: str,
     z_column: str,
     title: str,
-    x_label: str,
-    y_label: str,
 ) -> go.Figure:
     required = {x_column, y_column, z_column}
     if data.empty or not required.issubset(set(data.columns)):
@@ -182,8 +173,6 @@ def _heatmap_figure(
     )
     fig.update_layout(
         title=title,
-        xaxis_title=x_label,
-        yaxis_title=y_label,
         margin={"l": 48, "r": 24, "t": 48, "b": 40},
     )
     return fig
@@ -217,14 +206,11 @@ def build_dashboard_figures(data: pd.DataFrame) -> DashboardFigures:
             x_column=CSV_COLUMNS["commanded_pan"],
             y_column=CSV_COLUMNS["commanded_tilt"],
             title="Path of Travel (Pan/Tilt)",
-            x_label="Pan (deg)",
-            y_label="Tilt (deg)",
         ),
         power_time=_time_series_figure(
             data=data,
             y_columns=(CSV_COLUMNS["peak_power_dbm"], CSV_COLUMNS["center_power_dbm"]),
             title="Power vs Time",
-            y_label="Power (dBm)",
         ),
         pan_peak=_polar_figure(
             data=data,
@@ -251,14 +237,11 @@ def build_dashboard_figures(data: pd.DataFrame) -> DashboardFigures:
             x_column=CSV_COLUMNS["commanded_azimuth"],
             y_column=CSV_COLUMNS["commanded_elevation"],
             title="Path of Travel (Az/El)",
-            x_label="Azimuth (deg)",
-            y_label="Elevation (deg)",
         ),
         freq_time=_time_series_figure(
             data=data,
             y_columns=(CSV_COLUMNS["peak_frequency_hz"], CSV_COLUMNS["center_frequency_hz"]),
             title="Frequency vs Time",
-            y_label="Frequency (Hz)",
         ),
         az_el_peak_heat=_heatmap_figure(
             data=data,
@@ -266,8 +249,6 @@ def build_dashboard_figures(data: pd.DataFrame) -> DashboardFigures:
             y_column=CSV_COLUMNS["commanded_elevation"],
             z_column=CSV_COLUMNS["peak_power_dbm"],
             title="Az/El Peak Power Heatmap",
-            x_label="Azimuth (deg)",
-            y_label="Elevation (deg)",
         ),
         az_el_center_heat=_heatmap_figure(
             data=data,
@@ -275,8 +256,6 @@ def build_dashboard_figures(data: pd.DataFrame) -> DashboardFigures:
             y_column=CSV_COLUMNS["commanded_elevation"],
             z_column=CSV_COLUMNS["center_power_dbm"],
             title="Az/El Center Power Heatmap",
-            x_label="Azimuth (deg)",
-            y_label="Elevation (deg)",
         ),
         pan_tilt_peak_heat=_heatmap_figure(
             data=data,
@@ -284,8 +263,6 @@ def build_dashboard_figures(data: pd.DataFrame) -> DashboardFigures:
             y_column=CSV_COLUMNS["commanded_tilt"],
             z_column=CSV_COLUMNS["peak_power_dbm"],
             title="Pan/Tilt Peak Power Heatmap",
-            x_label="Pan (deg)",
-            y_label="Tilt (deg)",
         ),
         pan_tilt_center_heat=_heatmap_figure(
             data=data,
@@ -293,8 +270,6 @@ def build_dashboard_figures(data: pd.DataFrame) -> DashboardFigures:
             y_column=CSV_COLUMNS["commanded_tilt"],
             z_column=CSV_COLUMNS["center_power_dbm"],
             title="Pan/Tilt Center Power Heatmap",
-            x_label="Pan (deg)",
-            y_label="Tilt (deg)",
         ),
     )
 
