@@ -32,6 +32,10 @@ You may NEVER run `git push --force`.
 
 You should not submit GitHub pull requests. The user will submit a PR when they think they should.
 
+## pre-commit
+
+We run pre-commit on all commits to do `ruff check --fix` and `ruff format`. Run this on all commits.
+
 ## Plan mode
 
 At the start of every new conversation, before any analysis, tool call, or code change, if collaboration mode is not Plan, ask exactly: "Do you want to run this in Plan mode?" and wait for the user’s response. Do not proceed until they answer.
