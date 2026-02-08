@@ -7,7 +7,14 @@ from typing import Iterable
 import pandas as pd
 import plotly.graph_objects as go
 
-from chamber_gui.models import CSV_COLUMNS, DashboardFigures
+import plotly.colors
+
+from chamber_gui.models import (
+    CSV_COLUMNS,
+    DashboardFigures,
+    HORIZONTAL_POLAR_IDS,
+    classify_cut,
+)
 
 
 def _degree_axis(extra: dict[str, object] | None = None) -> dict[str, object]:
@@ -32,6 +39,42 @@ _LEGEND: dict[str, object] = {
     "x": 0.0,
     "bgcolor": "rgba(255, 255, 255, 0.5)",
 }
+
+
+def build_cut_color_map(cut_ids: list[str]) -> dict[str, str]:
+    """Returns a mapping of cut_id to color, consistent across all graphs."""
+    palette = plotly.colors.qualitative.Plotly
+    sorted_ids = sorted(set(cut_ids))
+    return {
+        cut_id: palette[i % len(palette)]
+        for i, cut_id in enumerate(sorted_ids)
+    }
+
+
+def _filter_polar_data(
+    data: pd.DataFrame,
+    graph_id: str,
+    cut_mode: str,
+) -> pd.DataFrame:
+    """Filters data for a polar graph based on cut mode."""
+    if cut_mode == "all":
+        return data
+
+    cut_col = CSV_COLUMNS["cut_id"]
+    if cut_col not in data.columns or data.empty:
+        return data
+
+    is_horizontal_graph = graph_id in HORIZONTAL_POLAR_IDS
+    keep_cuts = []
+    for cut_id in data[cut_col].dropna().unique():
+        classification = classify_cut(str(cut_id))
+        if classification == "horizontal" and is_horizontal_graph:
+            keep_cuts.append(cut_id)
+        elif classification == "vertical" and not is_horizontal_graph:
+            keep_cuts.append(cut_id)
+        elif classification == "indeterminate" and cut_mode == "auto-include":
+            keep_cuts.append(cut_id)
+    return data[data[cut_col].isin(keep_cuts)]
 
 
 def _empty_figure(title: str, message: str = "No data available") -> go.Figure:
@@ -60,6 +103,7 @@ def _polar_figure(
     r_column: str,
     title: str,
     compass_orientation: bool = False,
+    color_map: dict[str, str] | None = None,
 ) -> go.Figure:
     required = {theta_column, r_column}
     if data.empty or not required.issubset(set(data.columns)):
@@ -71,12 +115,16 @@ def _polar_figure(
             clean = subset[[theta_column, r_column]].dropna()
             if clean.empty:
                 continue
+            marker: dict[str, object] = {}
+            if color_map and str(cut_id) in color_map:
+                marker["color"] = color_map[str(cut_id)]
             fig.add_trace(
                 go.Scatterpolar(
                     theta=clean[theta_column],
                     r=clean[r_column],
                     mode="markers",
                     name=str(cut_id),
+                    marker=marker,
                 )
             )
     else:
@@ -122,6 +170,7 @@ def _path_figure(
     x_column: str,
     y_column: str,
     title: str,
+    color_map: dict[str, str] | None = None,
 ) -> go.Figure:
     required = {x_column, y_column}
     if data.empty or not required.issubset(set(data.columns)):
@@ -133,12 +182,19 @@ def _path_figure(
             clean = subset[[x_column, y_column]].dropna()
             if clean.empty:
                 continue
+            line: dict[str, object] = {}
+            marker: dict[str, object] = {}
+            if color_map and str(cut_id) in color_map:
+                line["color"] = color_map[str(cut_id)]
+                marker["color"] = color_map[str(cut_id)]
             fig.add_trace(
                 go.Scatter(
                     x=clean[x_column],
                     y=clean[y_column],
                     mode="lines+markers",
                     name=str(cut_id),
+                    line=line,
+                    marker=marker,
                 )
             )
     else:
@@ -240,34 +296,51 @@ def _heatmap_figure(
     return fig
 
 
-def build_dashboard_figures(data: pd.DataFrame) -> DashboardFigures:
+def build_dashboard_figures(
+    data: pd.DataFrame,
+    cut_mode: str = "auto-include",
+) -> DashboardFigures:
     """Builds all dashboard figures from a DataFrame."""
+    cut_col = CSV_COLUMNS["cut_id"]
+    if cut_col in data.columns and not data.empty:
+        all_cut_ids = [str(c) for c in data[cut_col].dropna().unique()]
+        color_map = build_cut_color_map(all_cut_ids)
+    else:
+        color_map = {}
+
+    def polar_data(graph_id: str) -> pd.DataFrame:
+        return _filter_polar_data(data, graph_id, cut_mode)
+
     return DashboardFigures(
         az_peak=_polar_figure(
-            data=data,
+            data=polar_data("az-peak"),
             theta_column=CSV_COLUMNS["commanded_azimuth"],
             r_column=CSV_COLUMNS["peak_power_dbm"],
             title="Azimuth Peak Power",
             compass_orientation=True,
+            color_map=color_map,
         ),
         az_center=_polar_figure(
-            data=data,
+            data=polar_data("az-center"),
             theta_column=CSV_COLUMNS["commanded_azimuth"],
             r_column=CSV_COLUMNS["center_power_dbm"],
             title="Azimuth Center Power",
             compass_orientation=True,
+            color_map=color_map,
         ),
         el_peak=_polar_figure(
-            data=data,
+            data=polar_data("el-peak"),
             theta_column=CSV_COLUMNS["commanded_elevation"],
             r_column=CSV_COLUMNS["peak_power_dbm"],
             title="Elevation Peak Power",
+            color_map=color_map,
         ),
         path_pan_tilt=_path_figure(
             data=data,
             x_column=CSV_COLUMNS["commanded_pan"],
             y_column=CSV_COLUMNS["commanded_tilt"],
             title="Path of Travel (Pan/Tilt)",
+            color_map=color_map,
         ),
         power_time=_time_series_figure(
             data=data,
@@ -275,30 +348,34 @@ def build_dashboard_figures(data: pd.DataFrame) -> DashboardFigures:
             title="Power vs Time",
         ),
         pan_peak=_polar_figure(
-            data=data,
+            data=polar_data("pan-peak"),
             theta_column=CSV_COLUMNS["commanded_pan"],
             r_column=CSV_COLUMNS["peak_power_dbm"],
             title="Pan Peak Power",
             compass_orientation=True,
+            color_map=color_map,
         ),
         pan_center=_polar_figure(
-            data=data,
+            data=polar_data("pan-center"),
             theta_column=CSV_COLUMNS["commanded_pan"],
             r_column=CSV_COLUMNS["center_power_dbm"],
             title="Pan Center Power",
             compass_orientation=True,
+            color_map=color_map,
         ),
         tilt_peak=_polar_figure(
-            data=data,
+            data=polar_data("tilt-peak"),
             theta_column=CSV_COLUMNS["commanded_tilt"],
             r_column=CSV_COLUMNS["peak_power_dbm"],
             title="Tilt Peak Power",
+            color_map=color_map,
         ),
         path_az_el=_path_figure(
             data=data,
             x_column=CSV_COLUMNS["commanded_azimuth"],
             y_column=CSV_COLUMNS["commanded_elevation"],
             title="Path of Travel (Az/El)",
+            color_map=color_map,
         ),
         freq_time=_time_series_figure(
             data=data,

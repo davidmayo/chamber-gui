@@ -10,7 +10,13 @@ from dash import Dash, Input, Output, State, clientside_callback, dcc, html
 
 from chamber_gui.data_loader import SnapshotCache, get_latest_snapshot
 from chamber_gui.figures import build_dashboard_figures
-from chamber_gui.models import CSV_COLUMNS, PANEL_IDS, PANEL_LABELS
+from chamber_gui.models import (
+    CSV_COLUMNS,
+    CUT_MODES,
+    DEFAULT_CUT_MODE,
+    PANEL_IDS,
+    PANEL_LABELS,
+)
 from chamber_gui.theme import APP_INDEX_TEMPLATE
 
 
@@ -136,6 +142,27 @@ def _build_modal_items(config: list[dict]) -> list:
     return items
 
 
+def _build_cut_mode_selector(current_mode: str) -> html.Div:
+    """Builds the polar cut mode radio selector for the modal."""
+    return html.Div(
+        className="modal-cut-mode",
+        children=[
+            html.H4("Polar Cut Selection", className="cut-mode-title"),
+            dcc.RadioItems(
+                id="cut-mode-radio",
+                options=[
+                    {"label": "Auto (include unknown)", "value": "auto-include"},
+                    {"label": "Auto (exclude unknown)", "value": "auto-exclude"},
+                    {"label": "All", "value": "all"},
+                ],
+                value=current_mode,
+                className="cut-mode-radio",
+                labelClassName="cut-mode-option",
+            ),
+        ],
+    )
+
+
 def create_app(csv_path: Path, poll_interval_ms: int = 1000) -> Dash:
     """Creates and configures the Dash app."""
     app = Dash(__name__, update_title=None)
@@ -160,10 +187,12 @@ def create_app(csv_path: Path, poll_interval_ms: int = 1000) -> Dash:
         Output("pan-tilt-center-heat", "figure"),
         Output("panel-info", "children"),
         Input("poll-interval", "n_intervals"),
+        Input("cut-mode", "data"),
     )
-    def _refresh(_: int):
+    def _refresh(_interval: int, cut_mode_data: str | None):
+        cut_mode = cut_mode_data if cut_mode_data in CUT_MODES else DEFAULT_CUT_MODE
         snapshot = get_latest_snapshot(cache=cache, csv_path=csv_path)
-        figures = build_dashboard_figures(snapshot.data)
+        figures = build_dashboard_figures(snapshot.data, cut_mode=cut_mode)
         info_panel = _build_info_panel(snapshot=snapshot)
         return (
             figures.az_peak,
@@ -200,13 +229,16 @@ def create_app(csv_path: Path, poll_interval_ms: int = 1000) -> Dash:
         Output("hamburger-dropdown", "className", allow_duplicate=True),
         Input("open-config-btn", "n_clicks"),
         State("graph-config", "data"),
+        State("cut-mode", "data"),
         prevent_initial_call=True,
     )
-    def _open_modal(_, config_data):
+    def _open_modal(_, config_data, cut_mode_data):
         config = _normalize_config(config_data)
+        current_mode = cut_mode_data if cut_mode_data in CUT_MODES else DEFAULT_CUT_MODE
         modal_content = [
             _build_modal_groups(config),
             html.Div(className="modal-items", children=_build_modal_items(config)),
+            _build_cut_mode_selector(current_mode),
         ]
         return "modal-overlay", modal_content, "hamburger-dropdown hidden"
 
@@ -217,6 +249,14 @@ def create_app(csv_path: Path, poll_interval_ms: int = 1000) -> Dash:
     )
     def _close_modal(_):
         return "modal-overlay hidden"
+
+    @app.callback(
+        Output("cut-mode", "data"),
+        Input("cut-mode-radio", "value"),
+        prevent_initial_call=True,
+    )
+    def _update_cut_mode(value):
+        return value
 
     clientside_callback(
         """
@@ -320,6 +360,7 @@ def _build_layout(poll_interval_ms: int) -> html.Div:
             ),
             html.Button(id="config-sync-btn", style={"display": "none"}, n_clicks=0),
             dcc.Store(id="graph-config", storage_type="memory", data=_default_config()),
+            dcc.Store(id="cut-mode", storage_type="local", data=DEFAULT_CUT_MODE),
             dcc.Interval(id="poll-interval", interval=poll_interval_ms, n_intervals=0),
         ],
     )
