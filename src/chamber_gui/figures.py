@@ -70,10 +70,12 @@ def _polar_figure(
         )
     tick_vals = list(range(0, 360, 15))
     tick_text = [f"{v}°" if v % 45 == 0 else "" for v in tick_vals]
+    grid_widths = [2 if v % 45 == 0 else 1 for v in tick_vals]
     angularaxis: dict[str, object] = {
         "tickmode": "array",
         "tickvals": tick_vals,
         "ticktext": tick_text,
+        "gridwidth": 1,
         "layer": "below traces",
     }
     if compass_orientation:
@@ -89,6 +91,20 @@ def _polar_figure(
         },
         legend=_LEGEND,
     )
+    # Draw thicker grid lines at 45-degree intervals.
+    all_r = pd.concat([trace.r if isinstance(trace.r, pd.Series) else pd.Series(trace.r) for trace in fig.data])
+    r_bounds = [float(all_r.min()), float(all_r.max())]
+    for angle in range(0, 360, 45):
+        fig.add_trace(
+            go.Scatterpolar(
+                r=r_bounds,
+                theta=[angle, angle],
+                mode="lines",
+                line={"color": "lightgray", "width": 2},
+                showlegend=False,
+                hoverinfo="skip",
+            )
+        )
     return fig
 
 
