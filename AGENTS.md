@@ -19,3 +19,19 @@ We use uv to manage dependencies and run the app. `uv add`  for a new dependency
 You may add Python dependencies as needed.
 
 We target Python 3.14+ only. We target Windows, Linux, and Mac.
+
+You should verify that the tests pass before considering a task complete. If you cannot get the tests to pass, make that abundantly clear to the user.
+
+## git
+
+All work should be done on feature branches. When given a task, you will be on a branch that you should do all your work on.
+
+You should make many git commits, at the completion of a task or a subtask. Creating many intermediate, "wip" commits are allowed and encouraged. You may `git commit` and `git push` at any point without asking for permission.
+
+You may NEVER run `git push --force`.
+
+You should not submit GitHub pull requests. The user will submit a PR when they think they should.
+
+## Plan mode
+
+All new conversations should begin in plan mode. If your new conversation starts and you are not in plan mode, immediately stop work and ask the user if they intended to be in plan mode.
