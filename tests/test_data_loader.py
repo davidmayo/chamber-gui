@@ -22,6 +22,7 @@ def test_load_csv_snapshot_parses_valid_data(sample_csv_path: Path) -> None:
     assert snapshot.data.empty is False
     assert snapshot.parse_errors_count == 0
     assert snapshot.warning is None
+    assert snapshot.data_changed is True
     timestamp_series = snapshot.data[CSV_COLUMNS["timestamp"]]
     assert timestamp_series.dt.tz is not None
     assert str(timestamp_series.dt.tz) == "UTC"
@@ -51,6 +52,7 @@ def test_load_csv_snapshot_returns_empty_data_when_mtime_unchanged(
     assert unchanged.rows_loaded == 0
     assert unchanged.parse_errors_count == 0
     assert unchanged.warning is None
+    assert unchanged.data_changed is False
 
 
 def test_load_csv_snapshot_surfaces_read_errors(
@@ -126,6 +128,8 @@ def test_get_latest_snapshot_reuses_cached_data_when_file_unchanged(
     assert len(second.data.index) == len(first.data.index)
     assert second.rows_loaded == first.rows_loaded
     assert second.parse_errors_count == first.parse_errors_count
+    assert first.data_changed is True
+    assert second.data_changed is False
 
 
 def test_get_latest_snapshot_keeps_last_good_data_when_read_fails(

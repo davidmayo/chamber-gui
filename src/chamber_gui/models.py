@@ -109,6 +109,7 @@ class CsvSnapshot:
     parse_errors_count: int
     last_update_time: datetime | None
     warning: str | None
+    data_changed: bool
 
 
 @dataclass(frozen=True)

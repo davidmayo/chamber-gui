@@ -37,6 +37,7 @@ def load_csv_snapshot(csv_path: Path, previous_mtime: float | None) -> CsvSnapsh
             parse_errors_count=0,
             last_update_time=datetime.now(tz=UTC),
             warning=f"CSV not found: {csv_path}",
+            data_changed=False,
         )
 
     mtime = csv_path.stat().st_mtime
@@ -50,6 +51,7 @@ def load_csv_snapshot(csv_path: Path, previous_mtime: float | None) -> CsvSnapsh
             parse_errors_count=0,
             last_update_time=datetime.now(tz=UTC),
             warning=None,
+            data_changed=False,
         )
 
     try:
@@ -63,6 +65,7 @@ def load_csv_snapshot(csv_path: Path, previous_mtime: float | None) -> CsvSnapsh
             parse_errors_count=0,
             last_update_time=datetime.now(tz=UTC),
             warning=f"CSV read failed: {error}",
+            data_changed=False,
         )
 
     parse_errors_count = 0
@@ -87,6 +90,7 @@ def load_csv_snapshot(csv_path: Path, previous_mtime: float | None) -> CsvSnapsh
         parse_errors_count=max(parse_errors_count, 0),
         last_update_time=datetime.now(tz=UTC),
         warning=None,
+        data_changed=True,
     )
 
 
@@ -113,6 +117,7 @@ def get_latest_snapshot(cache: SnapshotCache, csv_path: Path) -> CsvSnapshot:
             parse_errors_count=cache.snapshot.parse_errors_count,
             last_update_time=datetime.now(tz=UTC),
             warning=cache.snapshot.warning,
+            data_changed=False,
         )
 
     # If read failed, keep last good data but surface warning.
@@ -125,6 +130,7 @@ def get_latest_snapshot(cache: SnapshotCache, csv_path: Path) -> CsvSnapshot:
             parse_errors_count=cache.snapshot.parse_errors_count,
             last_update_time=fresh.last_update_time,
             warning=fresh.warning,
+            data_changed=False,
         )
         return cache.snapshot
 
