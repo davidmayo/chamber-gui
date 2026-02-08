@@ -16,3 +16,8 @@ def test_create_app_layout_contains_expected_ids() -> None:
     assert "poll-interval" in layout_repr
     assert "info-panel" in layout_repr
 
+
+def test_create_app_disables_update_title() -> None:
+    app = create_app(csv_path=Path("sample_data") / "run_data.csv")
+    assert app.config.update_title is None
+
