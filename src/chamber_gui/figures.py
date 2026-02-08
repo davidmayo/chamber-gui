@@ -9,13 +9,12 @@ import plotly.graph_objects as go
 
 from chamber_gui.models import CSV_COLUMNS, DashboardFigures
 
-_LEGEND_TOP: dict[str, object] = {
-    "orientation": "h",
-    "yanchor": "top",
-    "y": 1.0,
-    "xanchor": "center",
-    "x": 0.5,
-    "bgcolor": "rgba(255, 255, 255, 0.8)",
+_LEGEND: dict[str, object] = {
+    "yanchor": "bottom",
+    "y": 0.0,
+    "xanchor": "left",
+    "x": 0.0,
+    "bgcolor": "rgba(255, 255, 255, 0.5)",
 }
 
 
@@ -81,7 +80,7 @@ def _polar_figure(
             "angularaxis": angularaxis,
             "radialaxis": {"rangemode": "normal", "layer": "below traces"},
         },
-        legend=_LEGEND_TOP,
+        legend=_LEGEND,
     )
     return fig
 
@@ -117,7 +116,7 @@ def _path_figure(
     fig.update_layout(
         title=title,
         margin={"l": 40, "r": 24, "t": 48, "b": 40},
-        legend=_LEGEND_TOP,
+        legend=_LEGEND,
         xaxis={"layer": "below traces"},
         yaxis={"layer": "below traces"},
     )
@@ -148,7 +147,7 @@ def _time_series_figure(
     fig.update_layout(
         title=title,
         margin={"l": 48, "r": 24, "t": 48, "b": 40},
-        legend=_LEGEND_TOP,
+        legend=_LEGEND,
         xaxis={"layer": "below traces"},
         yaxis={"layer": "below traces"},
     )
