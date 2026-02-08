@@ -45,10 +45,7 @@ def build_cut_color_map(cut_ids: list[str]) -> dict[str, str]:
     """Returns a mapping of cut_id to color, consistent across all graphs."""
     palette = plotly.colors.qualitative.Plotly
     sorted_ids = sorted(set(cut_ids))
-    return {
-        cut_id: palette[i % len(palette)]
-        for i, cut_id in enumerate(sorted_ids)
-    }
+    return {cut_id: palette[i % len(palette)] for i, cut_id in enumerate(sorted_ids)}
 
 
 def _filter_polar_data(
