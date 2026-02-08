@@ -69,7 +69,10 @@ def _polar_figure(
             go.Scatterpolar(theta=clean[theta_column], r=clean[r_column], mode="markers", name="data")
         )
     tick_vals = list(range(0, 360, 15))
-    tick_text = [f"{v}°" if v % 45 == 0 else "" for v in tick_vals]
+    tick_text = [
+        f"{v - 360}°" if v % 45 == 0 and v > 180 else f"{v}°" if v % 45 == 0 else ""
+        for v in tick_vals
+    ]
     grid_widths = [2 if v % 45 == 0 else 1 for v in tick_vals]
     angularaxis: dict[str, object] = {
         "tickmode": "array",
