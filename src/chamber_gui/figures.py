@@ -162,9 +162,10 @@ def _heatmap_figure(
     if clean.empty:
         return _empty_figure(title)
 
+    bin_size = 3
     binned = clean.copy()
-    binned[x_column] = binned[x_column].round(0)
-    binned[y_column] = binned[y_column].round(0)
+    binned[x_column] = (binned[x_column] / bin_size).round(0) * bin_size
+    binned[y_column] = (binned[y_column] / bin_size).round(0) * bin_size
     pivot = binned.pivot_table(
         index=y_column,
         columns=x_column,
@@ -180,6 +181,7 @@ def _heatmap_figure(
             x=pivot.columns.to_list(),
             y=pivot.index.to_list(),
             showscale=False,
+            connectgaps=False,
         )
     )
     fig.update_layout(
