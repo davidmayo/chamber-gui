@@ -16,7 +16,7 @@ from chamber_gui.theme import APP_INDEX_TEMPLATE
 
 def create_app(csv_path: Path, poll_interval_ms: int = 1000) -> Dash:
     """Creates and configures the Dash app."""
-    app = Dash(__name__)
+    app = Dash(__name__, update_title=None)
     app.index_string = APP_INDEX_TEMPLATE
     app.layout = _build_layout(poll_interval_ms=poll_interval_ms)
     cache = SnapshotCache()
