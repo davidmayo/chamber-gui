@@ -262,7 +262,7 @@ def _build_layout(poll_interval_ms: int) -> html.Div:
                 ],
             ),
             html.Button(id="config-sync-btn", style={"display": "none"}, n_clicks=0),
-            dcc.Store(id="graph-config", storage_type="local", data=_default_config()),
+            dcc.Store(id="graph-config", storage_type="memory", data=_default_config()),
             dcc.Interval(id="poll-interval", interval=poll_interval_ms, n_intervals=0),
         ],
     )
