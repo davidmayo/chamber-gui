@@ -110,4 +110,3 @@ class DashboardFigures:
     az_el_center_heat: go.Figure
     pan_tilt_peak_heat: go.Figure
     pan_tilt_center_heat: go.Figure
-

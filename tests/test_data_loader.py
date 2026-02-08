@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from chamber_gui.data_loader import SnapshotCache, get_latest_snapshot, load_csv_snapshot
+from chamber_gui.data_loader import (
+    SnapshotCache,
+    get_latest_snapshot,
+    load_csv_snapshot,
+)
 
 
 def test_load_csv_snapshot_valid_sample() -> None:
@@ -31,4 +35,3 @@ def test_get_latest_snapshot_uses_cache_when_unchanged() -> None:
     assert first.data.empty is False
     assert second.data.empty is False
     assert len(second.data.index) == len(first.data.index)
-

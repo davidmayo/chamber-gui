@@ -20,4 +20,3 @@ def test_create_app_layout_contains_expected_ids() -> None:
 def test_create_app_disables_update_title() -> None:
     app = create_app(csv_path=Path("sample_data") / "run_data.csv")
     assert app.config.update_title is None
-

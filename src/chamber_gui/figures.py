@@ -82,7 +82,12 @@ def _polar_figure(
     else:
         clean = data[[theta_column, r_column]].dropna()
         fig.add_trace(
-            go.Scatterpolar(theta=clean[theta_column], r=clean[r_column], mode="markers", name="data")
+            go.Scatterpolar(
+                theta=clean[theta_column],
+                r=clean[r_column],
+                mode="markers",
+                name="data",
+            )
         )
 
     tick_vals = list(range(0, 360, 15))
@@ -138,7 +143,11 @@ def _path_figure(
             )
     else:
         clean = data[[x_column, y_column]].dropna()
-        fig.add_trace(go.Scatter(x=clean[x_column], y=clean[y_column], mode="lines+markers", name="data"))
+        fig.add_trace(
+            go.Scatter(
+                x=clean[x_column], y=clean[y_column], mode="lines+markers", name="data"
+            )
+        )
 
     fig.update_layout(
         title=title,
@@ -166,7 +175,11 @@ def _time_series_figure(
         clean = data[[timestamp_column, column]].dropna()
         if clean.empty:
             continue
-        fig.add_trace(go.Scatter(x=clean[timestamp_column], y=clean[column], mode="lines", name=column))
+        fig.add_trace(
+            go.Scatter(
+                x=clean[timestamp_column], y=clean[column], mode="lines", name=column
+            )
+        )
 
     if not fig.data:
         return _empty_figure(title)
@@ -289,7 +302,10 @@ def build_dashboard_figures(data: pd.DataFrame) -> DashboardFigures:
         ),
         freq_time=_time_series_figure(
             data=data,
-            y_columns=(CSV_COLUMNS["peak_frequency_hz"], CSV_COLUMNS["center_frequency_hz"]),
+            y_columns=(
+                CSV_COLUMNS["peak_frequency_hz"],
+                CSV_COLUMNS["center_frequency_hz"],
+            ),
             title="Frequency vs Time",
         ),
         az_el_peak_heat=_heatmap_figure(

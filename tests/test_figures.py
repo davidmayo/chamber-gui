@@ -46,4 +46,3 @@ def test_build_dashboard_figures_with_empty_data() -> None:
     assert len(figures.az_peak.data) == 0
     assert len(figures.power_time.data) == 0
     assert len(figures.pan_tilt_center_heat.data) == 0
-

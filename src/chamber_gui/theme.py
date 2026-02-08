@@ -282,4 +282,3 @@ APP_INDEX_TEMPLATE = """
     </body>
 </html>
 """
-

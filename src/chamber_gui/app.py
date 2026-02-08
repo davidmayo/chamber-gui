@@ -25,7 +25,13 @@ def _normalize_config(data: object) -> list[dict]:
     result = []
     for item in data:
         if isinstance(item, dict) and item.get("id") in set(PANEL_IDS):
-            result.append({"id": item["id"], "enabled": bool(item.get("enabled", True)), "order": int(item.get("order", 0))})
+            result.append(
+                {
+                    "id": item["id"],
+                    "enabled": bool(item.get("enabled", True)),
+                    "order": int(item.get("order", 0)),
+                }
+            )
     existing_ids = {item["id"] for item in result}
     next_order = max((item["order"] for item in result), default=-1) + 1
     for pid in PANEL_IDS:
@@ -38,10 +44,49 @@ def _normalize_config(data: object) -> list[dict]:
 
 _PANEL_GROUPS = [
     ("all", "All", list(PANEL_IDS)),
-    ("az-el", "Az/El", ["az-peak", "az-center", "el-peak", "az-el-peak-heat", "az-el-center-heat", "path-az-el"]),
-    ("pan-tilt", "Pan/Tilt", ["pan-peak", "pan-center", "tilt-peak", "pan-tilt-peak-heat", "pan-tilt-center-heat", "path-pan-tilt"]),
-    ("peak", "Peak Power", ["az-peak", "el-peak", "pan-peak", "tilt-peak", "az-el-peak-heat", "pan-tilt-peak-heat", "power-time", "freq-time"]),
-    ("center", "Center Power", ["az-center", "pan-center", "az-el-center-heat", "pan-tilt-center-heat"]),
+    (
+        "az-el",
+        "Az/El",
+        [
+            "az-peak",
+            "az-center",
+            "el-peak",
+            "az-el-peak-heat",
+            "az-el-center-heat",
+            "path-az-el",
+        ],
+    ),
+    (
+        "pan-tilt",
+        "Pan/Tilt",
+        [
+            "pan-peak",
+            "pan-center",
+            "tilt-peak",
+            "pan-tilt-peak-heat",
+            "pan-tilt-center-heat",
+            "path-pan-tilt",
+        ],
+    ),
+    (
+        "peak",
+        "Peak Power",
+        [
+            "az-peak",
+            "el-peak",
+            "pan-peak",
+            "tilt-peak",
+            "az-el-peak-heat",
+            "pan-tilt-peak-heat",
+            "power-time",
+            "freq-time",
+        ],
+    ),
+    (
+        "center",
+        "Center Power",
+        ["az-center", "pan-center", "az-el-center-heat", "pan-tilt-center-heat"],
+    ),
 ]
 
 
@@ -74,7 +119,9 @@ def _build_modal_items(config: list[dict]) -> list:
     for item in config:
         pid = item["id"]
         label = PANEL_LABELS.get(pid, pid)
-        cb_class = "modal-checkbox modal-checkbox--on" if item["enabled"] else "modal-checkbox"
+        cb_class = (
+            "modal-checkbox modal-checkbox--on" if item["enabled"] else "modal-checkbox"
+        )
         items.append(
             html.Div(
                 className="modal-item",
@@ -198,7 +245,9 @@ def create_app(csv_path: Path, poll_interval_ms: int = 1000) -> Dash:
             if not item["enabled"]:
                 style["display"] = "none"
             style_by_id[item["id"]] = style
-        return tuple(style_by_id.get(pid, {"order": i}) for i, pid in enumerate(PANEL_IDS))
+        return tuple(
+            style_by_id.get(pid, {"order": i}) for i, pid in enumerate(PANEL_IDS)
+        )
 
     return app
 
@@ -216,7 +265,11 @@ def _build_layout(poll_interval_ms: int) -> html.Div:
                         id="hamburger-dropdown",
                         className="hamburger-dropdown hidden",
                         children=[
-                            html.Button("Select Graphs", id="open-config-btn", className="dropdown-item"),
+                            html.Button(
+                                "Select Graphs",
+                                id="open-config-btn",
+                                className="dropdown-item",
+                            ),
                         ],
                     ),
                 ],
@@ -232,7 +285,11 @@ def _build_layout(poll_interval_ms: int) -> html.Div:
                                 className="modal-header",
                                 children=[
                                     html.H3("Configure Graphs"),
-                                    html.Button("Done", id="close-config-btn", className="modal-close-btn"),
+                                    html.Button(
+                                        "Done",
+                                        id="close-config-btn",
+                                        className="modal-close-btn",
+                                    ),
                                 ],
                             ),
                             html.Div(id="modal-body", className="modal-body"),
@@ -285,10 +342,16 @@ def _build_info_panel(snapshot) -> list:
                 html.Li(f"File exists: {snapshot.file_exists}"),
                 html.Li(f"Rows loaded: {snapshot.rows_loaded}"),
                 html.Li(f"Parse errors: {snapshot.parse_errors_count}"),
-                html.Li(f"Last refresh: {_format_timestamp(snapshot.last_update_time)}"),
-                html.Li(f"Latest timestamp: {_format_timestamp(latest_row.get(CSV_COLUMNS['timestamp']))}"),
+                html.Li(
+                    f"Last refresh: {_format_timestamp(snapshot.last_update_time)}"
+                ),
+                html.Li(
+                    f"Latest timestamp: {_format_timestamp(latest_row.get(CSV_COLUMNS['timestamp']))}"
+                ),
                 html.Li(f"Latest cut: {latest_row.get(CSV_COLUMNS['cut_id'], 'N/A')}"),
-                html.Li(f"Latest peak power (dBm): {_format_number(latest_row.get(CSV_COLUMNS['peak_power_dbm']))}"),
+                html.Li(
+                    f"Latest peak power (dBm): {_format_number(latest_row.get(CSV_COLUMNS['peak_power_dbm']))}"
+                ),
                 html.Li(
                     "Latest center power (dBm): "
                     f"{_format_number(latest_row.get(CSV_COLUMNS['center_power_dbm']))}"
