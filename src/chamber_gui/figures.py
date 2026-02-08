@@ -76,7 +76,7 @@ def _polar_figure(
     fig.update_layout(
         title=title,
         margin={"l": 24, "r": 24, "t": 48, "b": 24},
-        polar={"angularaxis": angularaxis},
+        polar={"angularaxis": angularaxis, "radialaxis": {"rangemode": "normal"}},
         legend=_LEGEND_TOP,
     )
     return fig
