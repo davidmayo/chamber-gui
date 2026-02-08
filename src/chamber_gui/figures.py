@@ -179,7 +179,7 @@ def _heatmap_figure(
             z=pivot.values,
             x=pivot.columns.to_list(),
             y=pivot.index.to_list(),
-            colorbar={"title": z_column},
+            showscale=False,
         )
     )
     fig.update_layout(
