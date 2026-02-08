@@ -49,13 +49,14 @@ def _polar_figure(
     if data.empty or not required.issubset(set(data.columns)):
         return _empty_figure(title)
 
-    fig = go.Figure()
+    # Collect data traces first so we can compute r bounds for major gridlines.
+    data_traces: list[go.Scatterpolar] = []
     if CSV_COLUMNS["cut_id"] in data.columns:
         for cut_id, subset in data.groupby(CSV_COLUMNS["cut_id"], dropna=False):
             clean = subset[[theta_column, r_column]].dropna()
             if clean.empty:
                 continue
-            fig.add_trace(
+            data_traces.append(
                 go.Scatterpolar(
                     theta=clean[theta_column],
                     r=clean[r_column],
@@ -65,20 +66,44 @@ def _polar_figure(
             )
     else:
         clean = data[[theta_column, r_column]].dropna()
-        fig.add_trace(
+        data_traces.append(
             go.Scatterpolar(theta=clean[theta_column], r=clean[r_column], mode="markers", name="data")
         )
+
+    # Compute r bounds from data for major gridline extent.
+    all_r = pd.concat([
+        trace.r if isinstance(trace.r, pd.Series) else pd.Series(trace.r)
+        for trace in data_traces
+    ])
+    r_bounds = [float(all_r.min()), float(all_r.max())]
+
+    # Build figure: major gridlines first (drawn below), then data traces on top.
+    fig = go.Figure()
+    for angle in range(0, 360, 45):
+        fig.add_trace(
+            go.Scatterpolar(
+                r=r_bounds,
+                theta=[angle, angle],
+                mode="lines",
+                line={"color": "#eee", "width": 2},
+                showlegend=False,
+                hoverinfo="skip",
+            )
+        )
+    for trace in data_traces:
+        fig.add_trace(trace)
+
     tick_vals = list(range(0, 360, 15))
     tick_text = [
         f"{v - 360}°" if v % 45 == 0 and v > 180 else f"{v}°" if v % 45 == 0 else ""
         for v in tick_vals
     ]
-    grid_widths = [2 if v % 45 == 0 else 1 for v in tick_vals]
     angularaxis: dict[str, object] = {
         "tickmode": "array",
         "tickvals": tick_vals,
         "ticktext": tick_text,
         "gridwidth": 1,
+        "griddash": "dot",
         "layer": "below traces",
     }
     if compass_orientation:
@@ -94,20 +119,6 @@ def _polar_figure(
         },
         legend=_LEGEND,
     )
-    # Draw thicker grid lines at 45-degree intervals.
-    all_r = pd.concat([trace.r if isinstance(trace.r, pd.Series) else pd.Series(trace.r) for trace in fig.data])
-    r_bounds = [float(all_r.min()), float(all_r.max())]
-    for angle in range(0, 360, 45):
-        fig.add_trace(
-            go.Scatterpolar(
-                r=r_bounds,
-                theta=[angle, angle],
-                mode="lines",
-                line={"color": "lightgray", "width": 2},
-                showlegend=False,
-                hoverinfo="skip",
-            )
-        )
     return fig
 
 
