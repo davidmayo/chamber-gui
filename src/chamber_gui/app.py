@@ -36,6 +36,39 @@ def _normalize_config(data: object) -> list[dict]:
     return result
 
 
+_PANEL_GROUPS = [
+    ("all", "All", list(PANEL_IDS)),
+    ("az-el", "Az/El", ["az-peak", "az-center", "el-peak", "az-el-peak-heat", "az-el-center-heat", "path-az-el"]),
+    ("pan-tilt", "Pan/Tilt", ["pan-peak", "pan-center", "tilt-peak", "pan-tilt-peak-heat", "pan-tilt-center-heat", "path-pan-tilt"]),
+    ("peak", "Peak Power", ["az-peak", "el-peak", "pan-peak", "tilt-peak", "az-el-peak-heat", "pan-tilt-peak-heat", "power-time", "freq-time"]),
+    ("center", "Center Power", ["az-center", "pan-center", "az-el-center-heat", "pan-tilt-center-heat"]),
+]
+
+
+def _build_modal_groups(config: list[dict]) -> html.Div:
+    enabled_ids = {item["id"] for item in config if item["enabled"]}
+    items = []
+    for gid, label, members in _PANEL_GROUPS:
+        on_count = sum(1 for m in members if m in enabled_ids)
+        if on_count == len(members):
+            cb_class, cb_text = "modal-checkbox modal-checkbox--on", "✓"
+        elif on_count == 0:
+            cb_class, cb_text = "modal-checkbox", "✓"
+        else:
+            cb_class, cb_text = "modal-checkbox modal-checkbox--mixed", "−"
+        items.append(
+            html.Div(
+                className="group-item",
+                **{"data-group-id": gid, "data-members": ",".join(members)},
+                children=[
+                    html.Span(cb_text, className=cb_class),
+                    html.Span(label, className="group-label"),
+                ],
+            )
+        )
+    return html.Div(className="modal-groups", children=items)
+
+
 def _build_modal_items(config: list[dict]) -> list:
     items = []
     for item in config:
@@ -124,7 +157,11 @@ def create_app(csv_path: Path, poll_interval_ms: int = 1000) -> Dash:
     )
     def _open_modal(_, config_data):
         config = _normalize_config(config_data)
-        return "modal-overlay", _build_modal_items(config), "hamburger-dropdown hidden"
+        modal_content = [
+            _build_modal_groups(config),
+            html.Div(className="modal-items", children=_build_modal_items(config)),
+        ]
+        return "modal-overlay", modal_content, "hamburger-dropdown hidden"
 
     @app.callback(
         Output("config-modal-overlay", "className", allow_duplicate=True),

@@ -119,17 +119,60 @@
     }
 
     // -----------------------------------------------------------------------
+    // Sync all group checkboxes to reflect current individual checkbox states
+    // -----------------------------------------------------------------------
+    function syncGroupCheckboxes(modalBody) {
+        modalBody.querySelectorAll(".group-item").forEach(function (groupItem) {
+            var members = groupItem.getAttribute("data-members").split(",");
+            var onCount = members.filter(function (m) {
+                var cb = modalBody.querySelector(".modal-item[data-panel-id='" + m + "'] .modal-checkbox");
+                return cb && cb.classList.contains("modal-checkbox--on");
+            }).length;
+            var groupCb = groupItem.querySelector(".modal-checkbox");
+            if (!groupCb) return;
+            if (onCount === members.length) {
+                groupCb.className = "modal-checkbox modal-checkbox--on";
+                groupCb.textContent = "\u2713";
+            } else if (onCount === 0) {
+                groupCb.className = "modal-checkbox";
+                groupCb.textContent = "\u2713";
+            } else {
+                groupCb.className = "modal-checkbox modal-checkbox--mixed";
+                groupCb.textContent = "\u2212";
+            }
+        });
+    }
+
+    // -----------------------------------------------------------------------
     // Delegated listeners on modal-body container (survive Dash re-renders)
     // -----------------------------------------------------------------------
     function attachContainerListeners(modalBody) {
         modalBody.addEventListener("dragover", onDragOver);
         modalBody.addEventListener("dragleave", onDragLeave);
         modalBody.addEventListener("drop", onDrop);
-        // Checkbox toggle via click on the custom checkbox span
         modalBody.addEventListener("click", function (e) {
-            var cb = e.target.closest(".modal-checkbox");
+            // Group checkbox click
+            var groupItem = e.target.closest(".group-item");
+            if (groupItem) {
+                var members = groupItem.getAttribute("data-members").split(",");
+                // If all are on, turn all off; otherwise (mixed or all off) turn all on
+                var allOn = members.every(function (m) {
+                    var cb = modalBody.querySelector(".modal-item[data-panel-id='" + m + "'] .modal-checkbox");
+                    return cb && cb.classList.contains("modal-checkbox--on");
+                });
+                members.forEach(function (m) {
+                    var cb = modalBody.querySelector(".modal-item[data-panel-id='" + m + "'] .modal-checkbox");
+                    if (cb) cb.classList.toggle("modal-checkbox--on", !allOn);
+                });
+                syncGroupCheckboxes(modalBody);
+                pushConfigToDash();
+                return;
+            }
+            // Individual checkbox toggle
+            var cb = e.target.closest(".modal-item .modal-checkbox");
             if (cb) {
                 cb.classList.toggle("modal-checkbox--on");
+                syncGroupCheckboxes(modalBody);
                 pushConfigToDash();
             }
         });
@@ -151,6 +194,7 @@
             mutations.forEach(function (mutation) {
                 if (mutation.type === "childList" && mutation.addedNodes.length > 0) {
                     attachItemListeners(modalBody);
+                    syncGroupCheckboxes(modalBody);
                 }
             });
         });

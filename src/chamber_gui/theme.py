@@ -175,9 +175,39 @@ APP_INDEX_TEMPLATE = """
                 font-size: 0.9rem;
             }
             .modal-body {
+                display: flex;
+                flex: 1;
+                min-height: 0;
+            }
+            .modal-items {
+                flex: 1;
                 overflow-y: auto;
                 padding: 8px 0;
-                flex: 1;
+            }
+            /* ===== Modal group toggles (left sidebar) ===== */
+            .modal-groups {
+                display: flex;
+                flex-direction: column;
+                gap: 2px;
+                padding: 10px 8px;
+                border-right: 1px solid var(--line);
+                flex-shrink: 0;
+            }
+            .group-item {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                padding: 6px 10px;
+                border-radius: 6px;
+                cursor: pointer;
+                user-select: none;
+            }
+            .group-item:hover {
+                background: var(--bg0);
+            }
+            .group-label {
+                font-size: 0.9rem;
+                color: var(--muted);
             }
             /* ===== Modal list items ===== */
             .modal-item {
@@ -225,6 +255,11 @@ APP_INDEX_TEMPLATE = """
                 background: var(--accent);
                 border-color: var(--accent);
                 color: white;
+            }
+            .modal-checkbox.modal-checkbox--mixed {
+                background: var(--bg1);
+                border-color: var(--muted);
+                color: var(--muted);
             }
             .panel-label {
                 flex: 1;
