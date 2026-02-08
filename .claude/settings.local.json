@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep:*)",
+      "Bash(uv run python:*)",
+      "Bash(uv run pytest:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat\\(figures\\): add 30-degree grid lines and hide angle labels on polar plots\n\nSets dtick=30 and showticklabels=False on all polar plot angular axes\nso grid lines appear every 30 degrees without cluttering text labels.\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git commit:*)"
+    ]
+  },
+  "outputStyle": "default"
+}

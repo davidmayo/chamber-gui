@@ -26,7 +26,7 @@ You should verify that the tests pass before considering a task complete. If you
 
 All work should be done on feature branches. When given a task, you will be on a branch that you should do all your work on.
 
-You should make many git commits, at the completion of a task or a subtask. Creating many intermediate, "wip" commits are allowed and encouraged. You may `git commit` and `git push` at any point without asking for permission.
+You should make many git commits, at the completion of a task or a subtask. Creating many intermediate, "wip" commits are allowed and encouraged. You may `git status`, `git add`, `git commit` and `git push` at any point without asking for permission.
 
 You may NEVER run `git push --force`.
 
@@ -34,4 +34,4 @@ You should not submit GitHub pull requests. The user will submit a PR when they 
 
 ## Plan mode
 
-All new conversations should begin in plan mode. If your new conversation starts and you are not in plan mode, immediately stop work and ask the user if they intended to be in plan mode.
+At the start of every new conversation, before any analysis, tool call, or code change, if collaboration mode is not Plan, ask exactly: "Do you want to run this in Plan mode?" and wait for the user’s response. Do not proceed until they answer.
