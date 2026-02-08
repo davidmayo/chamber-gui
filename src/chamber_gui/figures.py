@@ -11,10 +11,11 @@ from chamber_gui.models import CSV_COLUMNS, DashboardFigures
 
 _LEGEND_TOP: dict[str, object] = {
     "orientation": "h",
-    "yanchor": "bottom",
-    "y": 1.02,
+    "yanchor": "top",
+    "y": 1.0,
     "xanchor": "center",
     "x": 0.5,
+    "bgcolor": "rgba(255, 255, 255, 0.8)",
 }
 
 
