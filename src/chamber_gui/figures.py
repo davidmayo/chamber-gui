@@ -160,6 +160,7 @@ def _polar_figure(
             "angularaxis": angularaxis,
             "radialaxis": {"rangemode": "normal", "layer": "below traces"},
         },
+        showlegend=True,
         legend=_LEGEND,
     )
     return fig
@@ -208,6 +209,7 @@ def _path_figure(
     fig.update_layout(
         title=title,
         margin={"l": 40, "r": 24, "t": 48, "b": 40},
+        showlegend=True,
         legend=_LEGEND,
         xaxis=_degree_axis(),
         yaxis=_degree_axis({"scaleanchor": "x"}),
@@ -243,6 +245,7 @@ def _time_series_figure(
     fig.update_layout(
         title=title,
         margin={"l": 48, "r": 24, "t": 48, "b": 40},
+        showlegend=True,
         legend=_LEGEND,
         xaxis={"layer": "below traces"},
         yaxis={"layer": "below traces"},

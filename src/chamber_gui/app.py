@@ -190,8 +190,9 @@ def create_app(csv_path: Path, poll_interval_ms: int = 1000) -> Dash:
         Output("panel-info", "children"),
         Input("poll-interval", "n_intervals"),
         Input("cut-mode", "data"),
+        Input("graph-config", "data"),
     )
-    def _refresh(_interval: int, cut_mode_data: str | None):
+    def _refresh(_interval: int, cut_mode_data: str | None, _config_data: object):
         cut_mode = cut_mode_data if cut_mode_data in CUT_MODES else DEFAULT_CUT_MODE
         snapshot = get_latest_snapshot(cache=cache, csv_path=csv_path)
         info_panel = _build_info_panel(snapshot=snapshot)

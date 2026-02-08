@@ -72,7 +72,7 @@ def test_apply_panel_styles_callback_respects_enabled_and_order(
 
 def test_refresh_callback_returns_figures_and_info_panel(callback_lookup) -> None:
     callback = callback_lookup("_refresh")
-    outputs = callback(0, "auto-include")
+    outputs = callback(0, "auto-include", None)
     assert len(outputs) == 15
     for figure in outputs[:-1]:
         assert isinstance(figure, go.Figure)
