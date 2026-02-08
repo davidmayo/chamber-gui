@@ -9,6 +9,14 @@ import plotly.graph_objects as go
 
 from chamber_gui.models import CSV_COLUMNS, DashboardFigures
 
+_LEGEND_TOP: dict[str, object] = {
+    "orientation": "h",
+    "yanchor": "bottom",
+    "y": 1.02,
+    "xanchor": "center",
+    "x": 0.5,
+}
+
 
 def _empty_figure(title: str, message: str = "No data available") -> go.Figure:
     fig = go.Figure()
@@ -69,6 +77,7 @@ def _polar_figure(
         title=title,
         margin={"l": 24, "r": 24, "t": 48, "b": 24},
         polar={"angularaxis": angularaxis},
+        legend=_LEGEND_TOP,
     )
     return fig
 
@@ -104,6 +113,7 @@ def _path_figure(
     fig.update_layout(
         title=title,
         margin={"l": 40, "r": 24, "t": 48, "b": 40},
+        legend=_LEGEND_TOP,
     )
     return fig
 
@@ -132,6 +142,7 @@ def _time_series_figure(
     fig.update_layout(
         title=title,
         margin={"l": 48, "r": 24, "t": 48, "b": 40},
+        legend=_LEGEND_TOP,
     )
     return fig
 
