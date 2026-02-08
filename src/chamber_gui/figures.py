@@ -60,9 +60,10 @@ def _polar_figure(
         fig.add_trace(
             go.Scatterpolar(theta=clean[theta_column], r=clean[r_column], mode="markers", name="data")
         )
-    angularaxis: dict[str, object] = {}
+    angularaxis: dict[str, object] = {"dtick": 30, "showticklabels": False}
     if compass_orientation:
-        angularaxis = {"rotation": 90, "direction": "clockwise"}
+        angularaxis["rotation"] = 90
+        angularaxis["direction"] = "clockwise"
 
     fig.update_layout(
         title=title,
