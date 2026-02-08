@@ -144,7 +144,7 @@ def _path_figure(
         margin={"l": 40, "r": 24, "t": 48, "b": 40},
         legend=_LEGEND,
         xaxis={"layer": "below traces"},
-        yaxis={"layer": "below traces"},
+        yaxis={"layer": "below traces", "scaleanchor": "x"},
     )
     return fig
 
