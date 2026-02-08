@@ -165,7 +165,7 @@ def _build_cut_mode_selector(current_mode: str) -> html.Div:
 
 def create_app(csv_path: Path, poll_interval_ms: int = 1000) -> Dash:
     """Creates and configures the Dash app."""
-    app = Dash(__name__, update_title=None)
+    app = Dash(__name__, update_title=None, suppress_callback_exceptions=True)
     app.index_string = APP_INDEX_TEMPLATE
     app.layout = _build_layout(poll_interval_ms=poll_interval_ms)
     cache = SnapshotCache()
