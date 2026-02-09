@@ -33,6 +33,25 @@ def test_numeric_columns_are_defined_in_csv_columns() -> None:
     assert CSV_COLUMNS["timestamp"] not in NUMERIC_COLUMNS
 
 
+def test_csv_columns_match_lems_schema() -> None:
+    assert CSV_COLUMNS == {
+        "timestamp": "timestamp",
+        "cut_id": "cut_id",
+        "commanded_tilt": "commanded_tilt",
+        "commanded_pan": "commanded_pan",
+        "commanded_elevation": "commanded_elevation",
+        "commanded_azimuth": "commanded_azimuth",
+        "actual_tilt": "actual_tilt",
+        "actual_pan": "actual_pan",
+        "actual_elevation": "actual_elevation",
+        "actual_azimuth": "actual_azimuth",
+        "center_frequency_hz": "center_frequency",
+        "center_power_dbm": "center_amplitude",
+        "peak_frequency_hz": "peak_frequency",
+        "peak_power_dbm": "peak_amplitude",
+    }
+
+
 def test_csv_snapshot_is_frozen_dataclass() -> None:
     snapshot = CsvSnapshot(
         data=pd.DataFrame(),

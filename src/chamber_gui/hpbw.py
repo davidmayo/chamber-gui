@@ -35,11 +35,7 @@ def compute_hpbw(
     Returns:
         An HpbwResult, or None if fewer than 3 valid data points.
     """
-    pairs = [
-        (t, r)
-        for t, r in zip(thetas, rs)
-        if not (math.isnan(t) or math.isnan(r))
-    ]
+    pairs = [(t, r) for t, r in zip(thetas, rs) if not (math.isnan(t) or math.isnan(r))]
     if len(pairs) < 3:
         return None
 
