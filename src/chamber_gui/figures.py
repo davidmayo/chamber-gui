@@ -9,6 +9,7 @@ import plotly.graph_objects as go
 
 import plotly.colors
 
+from chamber_gui.hpbw import build_hpbw_traces, compute_hpbw
 from chamber_gui.models import (
     CSV_COLUMNS,
     DashboardFigures,
@@ -101,6 +102,7 @@ def _polar_figure(
     title: str,
     compass_orientation: bool = False,
     color_map: dict[str, str] | None = None,
+    hpbw_enabled: bool = False,
 ) -> go.Figure:
     required = {theta_column, r_column}
     if data.empty or not required.issubset(set(data.columns)):
@@ -160,6 +162,19 @@ def _polar_figure(
         showlegend=True,
         legend=_LEGEND,
     )
+
+    if hpbw_enabled and fig.data:
+        all_thetas: list[float] = []
+        all_rs: list[float] = []
+        for trace in fig.data:
+            all_thetas.extend(trace.theta)
+            all_rs.extend(trace.r)
+        result = compute_hpbw(all_thetas, all_rs)
+        if result is not None:
+            r_min = min(all_rs)
+            for overlay in build_hpbw_traces(result, r_min):
+                fig.add_trace(overlay)
+
     return fig
 
 
@@ -299,6 +314,7 @@ def _heatmap_figure(
 def build_dashboard_figures(
     data: pd.DataFrame,
     cut_mode: str = "auto-include",
+    hpbw_enabled: bool = False,
 ) -> DashboardFigures:
     """Builds all dashboard figures from a DataFrame."""
     cut_col = CSV_COLUMNS["cut_id"]
@@ -319,6 +335,7 @@ def build_dashboard_figures(
             title="Azimuth Peak Power",
             compass_orientation=True,
             color_map=color_map,
+            hpbw_enabled=hpbw_enabled,
         ),
         az_center=_polar_figure(
             data=polar_data("az-center"),
@@ -327,6 +344,7 @@ def build_dashboard_figures(
             title="Azimuth Center Power",
             compass_orientation=True,
             color_map=color_map,
+            hpbw_enabled=hpbw_enabled,
         ),
         el_peak=_polar_figure(
             data=polar_data("el-peak"),
@@ -334,6 +352,7 @@ def build_dashboard_figures(
             r_column=CSV_COLUMNS["peak_power_dbm"],
             title="Elevation Peak Power",
             color_map=color_map,
+            hpbw_enabled=hpbw_enabled,
         ),
         path_pan_tilt=_path_figure(
             data=data,
@@ -354,6 +373,7 @@ def build_dashboard_figures(
             title="Pan Peak Power",
             compass_orientation=True,
             color_map=color_map,
+            hpbw_enabled=hpbw_enabled,
         ),
         pan_center=_polar_figure(
             data=polar_data("pan-center"),
@@ -362,6 +382,7 @@ def build_dashboard_figures(
             title="Pan Center Power",
             compass_orientation=True,
             color_map=color_map,
+            hpbw_enabled=hpbw_enabled,
         ),
         tilt_peak=_polar_figure(
             data=polar_data("tilt-peak"),
@@ -369,6 +390,7 @@ def build_dashboard_figures(
             r_column=CSV_COLUMNS["peak_power_dbm"],
             title="Tilt Peak Power",
             color_map=color_map,
+            hpbw_enabled=hpbw_enabled,
         ),
         path_az_el=_path_figure(
             data=data,
