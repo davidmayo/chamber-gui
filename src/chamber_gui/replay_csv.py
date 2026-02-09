@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 import sys
 import csv
+import math
 import time
 from collections.abc import Callable
 
@@ -33,6 +34,15 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="Overwrite output if it already exists.",
     )
+    parser.add_argument(
+        "--speed",
+        type=float,
+        default=1.0,
+        help=(
+            "Replay speed multiplier; >1 is faster, <1 is slower. "
+            "Must be a finite positive number."
+        ),
+    )
     args = parser.parse_args(argv)
     return args
 
@@ -58,10 +68,14 @@ def replay_csv(
     input_path: Path,
     output_path: Path,
     pave: bool = False,
+    speed: float = 1.0,
     now: datetime | None = None,
     sleep_fn: Callable[[float], None] | None = None,
 ) -> None:
     """Reads input CSV and writes a replayed CSV with updated timestamps."""
+    if not math.isfinite(speed) or speed <= 0:
+        raise ValueError("Replay speed must be a finite positive number.")
+
     if not input_path.exists():
         raise FileNotFoundError(f"Input CSV not found: {input_path}")
 
@@ -119,7 +133,7 @@ def replay_csv(
         if idx > 1:
             delta_seconds = (original_ts - timestamps[idx - 2]).total_seconds()
             if delta_seconds > 0:
-                sleep_impl(delta_seconds)
+                sleep_impl(delta_seconds / speed)
         new_ts = original_ts + offset
         row[timestamp_field] = _format_timestamp(new_ts)
         with output_path.open("a", newline="", encoding="utf-8") as handle:
@@ -135,6 +149,7 @@ def main() -> None:
         input_path=Path(args.input),
         output_path=Path(args.output),
         pave=args.pave,
+        speed=args.speed,
     )
 
 
