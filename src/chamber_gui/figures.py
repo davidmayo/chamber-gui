@@ -43,11 +43,26 @@ _LEGEND: dict[str, object] = {
 }
 
 
-def build_cut_color_map(cut_ids: list[str]) -> dict[str, str]:
-    """Returns a mapping of cut_id to color, consistent across all graphs."""
+def build_cut_color_map(
+    cut_ids: Iterable[object],
+    existing_map: dict[str, str] | None = None,
+) -> dict[str, str]:
+    """Returns a stable cut_id-to-color mapping based on first-seen cut IDs."""
     palette = plotly.colors.qualitative.Plotly
-    sorted_ids = sorted(set(cut_ids))
-    return {cut_id: palette[i % len(palette)] for i, cut_id in enumerate(sorted_ids)}
+    color_map = dict(existing_map or {})
+    if not palette:
+        return color_map
+
+    next_index = len(color_map)
+    for cut_id in cut_ids:
+        if pd.isna(cut_id):
+            continue
+        cut_name = str(cut_id)
+        if cut_name in color_map:
+            continue
+        color_map[cut_name] = palette[next_index % len(palette)]
+        next_index += 1
+    return color_map
 
 
 def _filter_polar_data(
@@ -327,14 +342,16 @@ def build_dashboard_figures(
     data: pd.DataFrame,
     cut_mode: str = "auto-include",
     hpbw_enabled: bool = False,
+    color_map: dict[str, str] | None = None,
 ) -> DashboardFigures:
     """Builds all dashboard figures from a DataFrame."""
     cut_col = CSV_COLUMNS["cut_id"]
-    if cut_col in data.columns and not data.empty:
-        all_cut_ids = [str(c) for c in data[cut_col].dropna().unique()]
-        color_map = build_cut_color_map(all_cut_ids)
+    if color_map is not None:
+        resolved_color_map = dict(color_map)
+    elif cut_col in data.columns and not data.empty:
+        resolved_color_map = build_cut_color_map(data[cut_col])
     else:
-        color_map = {}
+        resolved_color_map = {}
 
     def polar_data(graph_id: str) -> pd.DataFrame:
         return _filter_polar_data(data, graph_id, cut_mode)
@@ -346,7 +363,7 @@ def build_dashboard_figures(
             r_column=CSV_COLUMNS["peak_power_dbm"],
             title="Azimuth Peak Power",
             compass_orientation=True,
-            color_map=color_map,
+            color_map=resolved_color_map,
             hpbw_enabled=hpbw_enabled,
         ),
         az_center=_polar_figure(
@@ -355,7 +372,7 @@ def build_dashboard_figures(
             r_column=CSV_COLUMNS["center_power_dbm"],
             title="Azimuth Center Power",
             compass_orientation=True,
-            color_map=color_map,
+            color_map=resolved_color_map,
             hpbw_enabled=hpbw_enabled,
         ),
         el_peak=_polar_figure(
@@ -363,7 +380,7 @@ def build_dashboard_figures(
             theta_column=CSV_COLUMNS["commanded_elevation"],
             r_column=CSV_COLUMNS["peak_power_dbm"],
             title="Elevation Peak Power",
-            color_map=color_map,
+            color_map=resolved_color_map,
             hpbw_enabled=hpbw_enabled,
         ),
         el_center=_polar_figure(
@@ -371,7 +388,7 @@ def build_dashboard_figures(
             theta_column=CSV_COLUMNS["commanded_elevation"],
             r_column=CSV_COLUMNS["center_power_dbm"],
             title="Elevation Center Power",
-            color_map=color_map,
+            color_map=resolved_color_map,
             hpbw_enabled=hpbw_enabled,
         ),
         path_pan_tilt=_path_figure(
@@ -379,7 +396,7 @@ def build_dashboard_figures(
             x_column=CSV_COLUMNS["commanded_pan"],
             y_column=CSV_COLUMNS["commanded_tilt"],
             title="Path of Travel (Pan/Tilt)",
-            color_map=color_map,
+            color_map=resolved_color_map,
         ),
         power_time=_time_series_figure(
             data=data,
@@ -392,7 +409,7 @@ def build_dashboard_figures(
             r_column=CSV_COLUMNS["peak_power_dbm"],
             title="Pan Peak Power",
             compass_orientation=True,
-            color_map=color_map,
+            color_map=resolved_color_map,
             hpbw_enabled=hpbw_enabled,
         ),
         pan_center=_polar_figure(
@@ -401,7 +418,7 @@ def build_dashboard_figures(
             r_column=CSV_COLUMNS["center_power_dbm"],
             title="Pan Center Power",
             compass_orientation=True,
-            color_map=color_map,
+            color_map=resolved_color_map,
             hpbw_enabled=hpbw_enabled,
         ),
         tilt_peak=_polar_figure(
@@ -409,7 +426,7 @@ def build_dashboard_figures(
             theta_column=CSV_COLUMNS["commanded_tilt"],
             r_column=CSV_COLUMNS["peak_power_dbm"],
             title="Tilt Peak Power",
-            color_map=color_map,
+            color_map=resolved_color_map,
             hpbw_enabled=hpbw_enabled,
         ),
         tilt_center=_polar_figure(
@@ -417,7 +434,7 @@ def build_dashboard_figures(
             theta_column=CSV_COLUMNS["commanded_tilt"],
             r_column=CSV_COLUMNS["center_power_dbm"],
             title="Tilt Center Power",
-            color_map=color_map,
+            color_map=resolved_color_map,
             hpbw_enabled=hpbw_enabled,
         ),
         path_az_el=_path_figure(
@@ -425,7 +442,7 @@ def build_dashboard_figures(
             x_column=CSV_COLUMNS["commanded_azimuth"],
             y_column=CSV_COLUMNS["commanded_elevation"],
             title="Path of Travel (Az/El)",
-            color_map=color_map,
+            color_map=resolved_color_map,
         ),
         freq_time=_time_series_figure(
             data=data,
