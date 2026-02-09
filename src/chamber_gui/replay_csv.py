@@ -110,17 +110,20 @@ def replay_csv(
     with output_path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=fieldnames)
         writer.writeheader()
-        sleep_impl = sleep_fn or time.sleep
-        for idx, row in enumerate(rows, start=1):
-            original_ts = timestamps[idx - 1]
-            if idx > 1:
-                delta_seconds = (original_ts - timestamps[idx - 2]).total_seconds()
-                if delta_seconds > 0:
-                    sleep_impl(delta_seconds)
-            new_ts = original_ts + offset
-            row[timestamp_field] = _format_timestamp(new_ts)
+
+    sleep_impl = sleep_fn or time.sleep
+    for idx, row in enumerate(rows, start=1):
+        original_ts = timestamps[idx - 1]
+        if idx > 1:
+            delta_seconds = (original_ts - timestamps[idx - 2]).total_seconds()
+            if delta_seconds > 0:
+                sleep_impl(delta_seconds)
+        new_ts = original_ts + offset
+        row[timestamp_field] = _format_timestamp(new_ts)
+        with output_path.open("a", newline="", encoding="utf-8") as handle:
+            writer = csv.DictWriter(handle, fieldnames=fieldnames)
             writer.writerow(row)
-            print(f"  Replaying line {idx} of {row_count}")
+        print(f"  Replaying line {idx} of {row_count}")
 
 
 def main() -> None:
