@@ -129,3 +129,43 @@ def test_empty_figure_contains_message_annotation() -> None:
     assert len(figure.data) == 0
     assert figure.layout.title.text == "Empty Figure"
     assert figure.layout.annotations[0]["text"] == "Nothing here"
+
+
+def test_polar_figure_hpbw_disabled_has_no_overlay_traces(
+    sample_rows_df: pd.DataFrame,
+) -> None:
+    """With hpbw_enabled=False (default), no overlay traces are added."""
+    figures = build_dashboard_figures(_parsed_dataframe(sample_rows_df))
+    # az_peak has 2 cuts → 2 data traces, no overlays.
+    assert len(figures.az_peak.data) == 2
+    assert all(trace.mode == "markers" for trace in figures.az_peak.data)
+
+
+def test_polar_figure_hpbw_enabled_adds_overlay_traces(
+    sample_rows_df: pd.DataFrame,
+) -> None:
+    """With hpbw_enabled=True, 5 overlay traces are added to polar figures."""
+    figures = build_dashboard_figures(
+        _parsed_dataframe(sample_rows_df), hpbw_enabled=True
+    )
+    # az_peak: 2 data traces + 5 HPBW overlays = 7.
+    assert len(figures.az_peak.data) == 7
+    hpbw_traces = figures.az_peak.data[2:]
+    assert all(trace.mode == "lines" for trace in hpbw_traces)
+    # The first overlay trace carries the HPBW legend label.
+    assert "HPBW:" in hpbw_traces[0].name
+
+
+def test_hpbw_enabled_does_not_affect_non_polar_figures(
+    sample_rows_df: pd.DataFrame,
+) -> None:
+    """Non-polar figures have no HPBW overlays regardless of the toggle."""
+    figures_off = build_dashboard_figures(_parsed_dataframe(sample_rows_df))
+    figures_on = build_dashboard_figures(
+        _parsed_dataframe(sample_rows_df), hpbw_enabled=True
+    )
+    assert len(figures_on.path_pan_tilt.data) == len(figures_off.path_pan_tilt.data)
+    assert len(figures_on.power_time.data) == len(figures_off.power_time.data)
+    assert len(figures_on.az_el_peak_heat.data) == len(
+        figures_off.az_el_peak_heat.data
+    )

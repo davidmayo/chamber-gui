@@ -22,6 +22,7 @@ def test_app_registers_expected_callback_names() -> None:
         "_open_modal",
         "_close_modal",
         "_update_cut_mode",
+        "_update_hpbw",
         "_apply_panel_styles",
     }
 
@@ -38,6 +39,7 @@ def test_open_modal_callback_builds_modal_content(callback_lookup) -> None:
         1,
         [{"id": "az-peak", "enabled": False, "order": 0}],
         "auto-include",
+        False,
     )
     assert overlay_class == "modal-overlay"
     assert dropdown_class == "hamburger-dropdown hidden"
@@ -70,9 +72,15 @@ def test_apply_panel_styles_callback_respects_enabled_and_order(
     assert "display" not in style_by_panel["pan-peak"]
 
 
+def test_update_hpbw_callback(callback_lookup) -> None:
+    callback = callback_lookup("_update_hpbw")
+    assert callback(["enabled"]) is True
+    assert callback([]) is False
+
+
 def test_refresh_callback_returns_figures_and_info_panel(callback_lookup) -> None:
     callback = callback_lookup("_refresh")
-    outputs = callback(0, "auto-include", None)
+    outputs = callback(0, "auto-include", None, False)
     assert len(outputs) == 15
     for figure in outputs[:-1]:
         assert isinstance(figure, go.Figure)
