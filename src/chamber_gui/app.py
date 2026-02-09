@@ -144,8 +144,8 @@ def _build_modal_items(config: list[dict]) -> list:
     return items
 
 
-def _build_cut_mode_selector(current_mode: str) -> html.Div:
-    """Builds the polar cut mode radio selector for the modal."""
+def _build_modal_right_panel(current_mode: str, hpbw_enabled: bool) -> html.Div:
+    """Builds the right panel of the modal (cut mode + overlays)."""
     return html.Div(
         className="modal-cut-mode",
         children=[
@@ -158,6 +158,23 @@ def _build_cut_mode_selector(current_mode: str) -> html.Div:
                     {"label": "All", "value": "all"},
                 ],
                 value=current_mode,
+                className="cut-mode-radio",
+                labelClassName="cut-mode-option",
+            ),
+            html.Hr(
+                style={
+                    "margin": "14px 0",
+                    "border": "none",
+                    "border-top": "1px solid var(--line)",
+                }
+            ),
+            html.H4("Overlays", className="cut-mode-title"),
+            dcc.Checklist(
+                id="hpbw-checkbox",
+                options=[
+                    {"label": "Half Power Beam Width", "value": "enabled"},
+                ],
+                value=["enabled"] if hpbw_enabled else [],
                 className="cut-mode-radio",
                 labelClassName="cut-mode-option",
             ),
@@ -191,16 +208,25 @@ def create_app(csv_path: Path, poll_interval_ms: int = 1000) -> Dash:
         Input("poll-interval", "n_intervals"),
         Input("cut-mode", "data"),
         Input("graph-config", "data"),
+        Input("hpbw-enabled", "data"),
     )
-    def _refresh(_interval: int, cut_mode_data: str | None, _config_data: object):
+    def _refresh(
+        _interval: int,
+        cut_mode_data: str | None,
+        _config_data: object,
+        hpbw_data: object,
+    ):
         cut_mode = cut_mode_data if cut_mode_data in CUT_MODES else DEFAULT_CUT_MODE
+        hpbw_enabled = bool(hpbw_data)
         snapshot = get_latest_snapshot(cache=cache, csv_path=csv_path)
         info_panel = _build_info_panel(snapshot=snapshot)
 
         if not snapshot.data_changed and ctx.triggered_id == "poll-interval":
             return (*(dash.no_update for _ in GRAPH_IDS), info_panel)
 
-        figures = build_dashboard_figures(snapshot.data, cut_mode=cut_mode)
+        figures = build_dashboard_figures(
+            snapshot.data, cut_mode=cut_mode, hpbw_enabled=hpbw_enabled
+        )
         return (
             figures.az_peak,
             figures.az_center,
@@ -237,15 +263,17 @@ def create_app(csv_path: Path, poll_interval_ms: int = 1000) -> Dash:
         Input("open-config-btn", "n_clicks"),
         State("graph-config", "data"),
         State("cut-mode", "data"),
+        State("hpbw-enabled", "data"),
         prevent_initial_call=True,
     )
-    def _open_modal(_, config_data, cut_mode_data):
+    def _open_modal(_, config_data, cut_mode_data, hpbw_data):
         config = _normalize_config(config_data)
         current_mode = cut_mode_data if cut_mode_data in CUT_MODES else DEFAULT_CUT_MODE
+        hpbw_enabled = bool(hpbw_data)
         modal_content = [
             _build_modal_groups(config),
             html.Div(className="modal-items", children=_build_modal_items(config)),
-            _build_cut_mode_selector(current_mode),
+            _build_modal_right_panel(current_mode, hpbw_enabled),
         ]
         return "modal-overlay", modal_content, "hamburger-dropdown hidden"
 
@@ -264,6 +292,14 @@ def create_app(csv_path: Path, poll_interval_ms: int = 1000) -> Dash:
     )
     def _update_cut_mode(value):
         return value
+
+    @app.callback(
+        Output("hpbw-enabled", "data"),
+        Input("hpbw-checkbox", "value"),
+        prevent_initial_call=True,
+    )
+    def _update_hpbw(value):
+        return bool(value)
 
     clientside_callback(
         """
@@ -368,6 +404,7 @@ def _build_layout(poll_interval_ms: int) -> html.Div:
             html.Button(id="config-sync-btn", style={"display": "none"}, n_clicks=0),
             dcc.Store(id="graph-config", storage_type="memory", data=_default_config()),
             dcc.Store(id="cut-mode", storage_type="local", data=DEFAULT_CUT_MODE),
+            dcc.Store(id="hpbw-enabled", storage_type="local", data=False),
             dcc.Interval(id="poll-interval", interval=poll_interval_ms, n_intervals=0),
         ],
     )
