@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import sys
 
 import pytest
 
@@ -26,6 +27,7 @@ def test_main_uses_default_env_values(monkeypatch) -> None:
     monkeypatch.delenv("CHAMBER_GUI_HOST", raising=False)
     monkeypatch.delenv("CHAMBER_GUI_PORT", raising=False)
     monkeypatch.setattr(chamber_gui, "create_app", _fake_create_app)
+    monkeypatch.setattr(sys, "argv", ["chamber-gui"])
 
     chamber_gui.main()
 
@@ -56,6 +58,7 @@ def test_main_uses_custom_env_values(monkeypatch) -> None:
     monkeypatch.setenv("CHAMBER_GUI_HOST", "0.0.0.0")
     monkeypatch.setenv("CHAMBER_GUI_PORT", "9000")
     monkeypatch.setattr(chamber_gui, "create_app", _fake_create_app)
+    monkeypatch.setattr(sys, "argv", ["chamber-gui"])
 
     chamber_gui.main()
 
@@ -71,5 +74,31 @@ def test_main_uses_custom_env_values(monkeypatch) -> None:
 
 def test_main_raises_for_invalid_integer_env(monkeypatch) -> None:
     monkeypatch.setenv("CHAMBER_GUI_POLL_MS", "invalid")
+    monkeypatch.setattr(sys, "argv", ["chamber-gui"])
     with pytest.raises(ValueError):
         chamber_gui.main()
+
+
+def test_main_uses_cli_path_over_env(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    class FakeApp:
+        def run(self, **kwargs):
+            captured["run_kwargs"] = kwargs
+
+    def _fake_create_app(csv_path: Path, poll_interval_ms: int):
+        captured["csv_path"] = csv_path
+        captured["poll_interval_ms"] = poll_interval_ms
+        return FakeApp()
+
+    monkeypatch.setenv("CHAMBER_GUI_CSV", "/tmp/env.csv")
+    monkeypatch.setattr(chamber_gui, "create_app", _fake_create_app)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["chamber-gui", "--path", "/tmp/cli.csv"],
+    )
+
+    chamber_gui.main()
+
+    assert captured["csv_path"] == Path("/tmp/cli.csv")

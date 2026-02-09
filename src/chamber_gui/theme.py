@@ -43,6 +43,20 @@ APP_INDEX_TEMPLATE = """
                 font-size: 2rem;
                 letter-spacing: 0.01em;
             }
+            .status-line {
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                padding: 8px 12px;
+                border-radius: 10px;
+                border: 1px solid var(--line);
+                background: var(--panel);
+                color: var(--muted);
+                font-size: 0.9rem;
+                box-shadow: 0 6px 14px rgba(39, 64, 90, 0.1);
+                max-width: 100%;
+                word-break: break-word;
+            }
             .grid {
                 display: flex;
                 flex-wrap: wrap;

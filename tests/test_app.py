@@ -12,6 +12,7 @@ from chamber_gui.app import (
     _build_info_panel,
     _build_modal_groups,
     _build_modal_items,
+    _build_source_status,
     _default_config,
     _format_number,
     _format_timestamp,
@@ -158,9 +159,39 @@ def test_build_info_panel_includes_latest_row_details() -> None:
         warning=None,
         data_changed=True,
     )
-    info = _build_info_panel(snapshot)
+    info = _build_info_panel(snapshot, source_config=None)
     assert info[0].children == "Run Info"
     items = info[1].children
     assert any("Latest cut: fine-pan" in item.children for item in items)
     assert any("Latest peak power (dBm): -15.100" in item.children for item in items)
     assert any("Warning: None" in item.children for item in items)
+
+
+def test_build_info_panel_includes_source_details() -> None:
+    snapshot = CsvSnapshot(
+        data=pd.DataFrame(),
+        mtime=None,
+        file_exists=False,
+        rows_loaded=0,
+        parse_errors_count=0,
+        last_update_time=datetime(2026, 2, 8, 12, 0, tzinfo=UTC),
+        warning=None,
+        data_changed=False,
+    )
+    info = _build_info_panel(
+        snapshot,
+        source_config={"mode": "folder", "path": "/tmp/runs"},
+    )
+    items = info[1].children
+    assert any("Source mode: folder" in item.children for item in items)
+    assert any("Source path: /tmp/runs" in item.children for item in items)
+
+
+def test_build_source_status_formats_message() -> None:
+    status = _build_source_status(
+        source_mode="folder",
+        source_path=Path("/tmp/runs"),
+        resolved_csv=Path("/tmp/runs/run.csv"),
+    )
+    assert "Source: folder" in status
+    assert "Resolved CSV: /tmp/runs/run.csv" in status

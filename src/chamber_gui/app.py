@@ -9,7 +9,12 @@ import pandas as pd
 import dash
 from dash import Dash, Input, Output, State, clientside_callback, ctx, dcc, html
 
-from chamber_gui.data_loader import SnapshotCache, get_latest_snapshot
+from chamber_gui.data_loader import (
+    SnapshotCache,
+    find_latest_csv,
+    get_latest_snapshot,
+    infer_source_mode,
+)
 from chamber_gui.figures import build_dashboard_figures
 from chamber_gui.models import (
     CSV_COLUMNS,
@@ -169,7 +174,12 @@ def create_app(csv_path: Path, poll_interval_ms: int = 1000) -> Dash:
     """Creates and configures the Dash app."""
     app = Dash(__name__, update_title=None, suppress_callback_exceptions=True)
     app.index_string = APP_INDEX_TEMPLATE
-    app.layout = _build_layout(poll_interval_ms=poll_interval_ms)
+    source_mode = infer_source_mode(csv_path)
+    source_config = {"path": str(csv_path), "mode": source_mode}
+    app.layout = _build_layout(
+        poll_interval_ms=poll_interval_ms,
+        source_config=source_config,
+    )
     cache = SnapshotCache()
 
     @app.callback(
@@ -188,17 +198,48 @@ def create_app(csv_path: Path, poll_interval_ms: int = 1000) -> Dash:
         Output("pan-tilt-peak-heat", "figure"),
         Output("pan-tilt-center-heat", "figure"),
         Output("panel-info", "children"),
+        Output("source-status", "children"),
         Input("poll-interval", "n_intervals"),
         Input("cut-mode", "data"),
         Input("graph-config", "data"),
+        Input("source-config", "data"),
     )
-    def _refresh(_interval: int, cut_mode_data: str | None, _config_data: object):
+    def _refresh(
+        _interval: int,
+        cut_mode_data: str | None,
+        _config_data: object,
+        source_config_data: object,
+    ):
         cut_mode = cut_mode_data if cut_mode_data in CUT_MODES else DEFAULT_CUT_MODE
-        snapshot = get_latest_snapshot(cache=cache, csv_path=csv_path)
-        info_panel = _build_info_panel(snapshot=snapshot)
+        source_path = csv_path
+        source_mode = infer_source_mode(csv_path)
+        if isinstance(source_config_data, dict):
+            raw_path = source_config_data.get("path")
+            raw_mode = source_config_data.get("mode")
+            if isinstance(raw_path, str) and raw_path:
+                source_path = Path(raw_path)
+            if raw_mode in {"file", "folder"}:
+                source_mode = raw_mode
+        snapshot = get_latest_snapshot(
+            cache=cache,
+            csv_path=source_path,
+            source_mode=source_mode,
+        )
+        resolved_csv = source_path
+        if source_mode == "folder":
+            resolved_csv = find_latest_csv(source_path)
+        status_line = _build_source_status(
+            source_mode=source_mode,
+            source_path=source_path,
+            resolved_csv=resolved_csv,
+        )
+        info_panel = _build_info_panel(
+            snapshot=snapshot,
+            source_config=source_config_data,
+        )
 
         if not snapshot.data_changed and ctx.triggered_id == "poll-interval":
-            return (*(dash.no_update for _ in GRAPH_IDS), info_panel)
+            return (*(dash.no_update for _ in GRAPH_IDS), info_panel, status_line)
 
         figures = build_dashboard_figures(snapshot.data, cut_mode=cut_mode)
         return (
@@ -217,6 +258,7 @@ def create_app(csv_path: Path, poll_interval_ms: int = 1000) -> Dash:
             figures.pan_tilt_peak_heat,
             figures.pan_tilt_center_heat,
             info_panel,
+            status_line,
         )
 
     @app.callback(
@@ -229,6 +271,46 @@ def create_app(csv_path: Path, poll_interval_ms: int = 1000) -> Dash:
         if current_class and "hidden" in current_class:
             return "hamburger-dropdown"
         return "hamburger-dropdown hidden"
+
+    @app.callback(
+        Output("source-config", "data"),
+        Input("open-source-file-btn", "n_clicks"),
+        Input("open-source-folder-btn", "n_clicks"),
+        prevent_initial_call=True,
+    )
+    def _select_source(_file_clicks, _folder_clicks):
+        if ctx.triggered_id not in {
+            "open-source-file-btn",
+            "open-source-folder-btn",
+        }:
+            return dash.no_update
+        try:
+            from tkinter import TclError, Tk, filedialog
+        except ImportError:
+            return dash.no_update
+
+        root = Tk()
+        root.withdraw()
+        try:
+            root.wm_attributes("-topmost", 1)
+        except TclError:
+            pass
+
+        if ctx.triggered_id == "open-source-file-btn":
+            selected = filedialog.askopenfilename(
+                title="Select CSV File",
+                filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
+            )
+            mode = "file"
+        else:
+            selected = filedialog.askdirectory(title="Select CSV Folder")
+            mode = "folder"
+
+        root.destroy()
+
+        if not selected:
+            return dash.no_update
+        return {"path": selected, "mode": mode}
 
     @app.callback(
         Output("config-modal-overlay", "className"),
@@ -299,7 +381,7 @@ def create_app(csv_path: Path, poll_interval_ms: int = 1000) -> Dash:
     return app
 
 
-def _build_layout(poll_interval_ms: int) -> html.Div:
+def _build_layout(poll_interval_ms: int, source_config: dict) -> html.Div:
     return html.Div(
         className="page",
         children=[
@@ -315,6 +397,16 @@ def _build_layout(poll_interval_ms: int) -> html.Div:
                             html.Button(
                                 "Select Graphs",
                                 id="open-config-btn",
+                                className="dropdown-item",
+                            ),
+                            html.Button(
+                                "Source CSV",
+                                id="open-source-file-btn",
+                                className="dropdown-item",
+                            ),
+                            html.Button(
+                                "Source Folder",
+                                id="open-source-folder-btn",
                                 className="dropdown-item",
                             ),
                         ],
@@ -345,6 +437,7 @@ def _build_layout(poll_interval_ms: int) -> html.Div:
                 ],
             ),
             html.H1("Chamber Monitoring", className="title"),
+            html.Div(id="source-status", className="status-line"),
             html.Div(
                 className="grid",
                 children=[
@@ -368,6 +461,7 @@ def _build_layout(poll_interval_ms: int) -> html.Div:
             html.Button(id="config-sync-btn", style={"display": "none"}, n_clicks=0),
             dcc.Store(id="graph-config", storage_type="memory", data=_default_config()),
             dcc.Store(id="cut-mode", storage_type="local", data=DEFAULT_CUT_MODE),
+            dcc.Store(id="source-config", storage_type="memory", data=source_config),
             dcc.Interval(id="poll-interval", interval=poll_interval_ms, n_intervals=0),
         ],
     )
@@ -381,13 +475,25 @@ def _graph_panel(graph_id: str) -> html.Div:
     )
 
 
-def _build_info_panel(snapshot) -> list:
+def _build_info_panel(snapshot, source_config: object | None = None) -> list:
+    source_mode = "N/A"
+    source_path = "N/A"
+    if isinstance(source_config, dict):
+        mode = source_config.get("mode")
+        path = source_config.get("path")
+        if isinstance(mode, str):
+            source_mode = mode
+        if isinstance(path, str) and path:
+            source_path = path
+
     latest_row = _safe_latest_row(snapshot.data)
     return [
         html.H3("Run Info"),
         html.Ul(
             children=[
                 html.Li(f"File exists: {snapshot.file_exists}"),
+                html.Li(f"Source mode: {source_mode}"),
+                html.Li(f"Source path: {source_path}"),
                 html.Li(f"Rows loaded: {snapshot.rows_loaded}"),
                 html.Li(f"Parse errors: {snapshot.parse_errors_count}"),
                 html.Li(
@@ -416,6 +522,18 @@ def _build_info_panel(snapshot) -> list:
             ]
         ),
     ]
+
+
+def _build_source_status(
+    source_mode: str,
+    source_path: Path,
+    resolved_csv: Path | None,
+) -> str:
+    resolved_text = str(resolved_csv) if resolved_csv is not None else "N/A"
+    return (
+        f"Source: {source_mode} ({source_path})"
+        f" | Resolved CSV: {resolved_text}"
+    )
 
 
 def _safe_latest_row(data: pd.DataFrame) -> dict:

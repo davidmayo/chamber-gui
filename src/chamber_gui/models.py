@@ -65,6 +65,8 @@ PANEL_IDS = (*GRAPH_IDS, "info")
 CUT_MODES = ("auto-include", "auto-exclude", "all")
 DEFAULT_CUT_MODE = "auto-include"
 
+SourceMode = Literal["file", "folder"]
+
 HORIZONTAL_POLAR_IDS = frozenset({"az-peak", "az-center", "pan-peak", "pan-center"})
 VERTICAL_POLAR_IDS = frozenset({"el-peak", "tilt-peak"})
 
