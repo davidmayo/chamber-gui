@@ -177,14 +177,16 @@ def get_latest_snapshot(
         else:
             resolved_path = latest_csv
 
-    source_key = f"{mode}:{resolved_path}" if warning is None else f"{mode}:{csv_path}"
+    if warning is not None:
+        file_exists = csv_path.exists() if mode == "folder" else False
+        if cache.source_key is None:
+            cache.source_key = f"{mode}:{csv_path}"
+        return _warning_snapshot(cache, warning, file_exists=file_exists)
+
+    source_key = f"{mode}:{resolved_path}"
     if cache.source_key != source_key:
         cache.snapshot = None
         cache.source_key = source_key
-
-    if warning is not None:
-        file_exists = csv_path.exists() if mode == "folder" else False
-        return _warning_snapshot(cache, warning, file_exists=file_exists)
 
     previous_mtime = cache.snapshot.mtime if cache.snapshot else None
     fresh = load_csv_snapshot(csv_path=resolved_path, previous_mtime=previous_mtime)
