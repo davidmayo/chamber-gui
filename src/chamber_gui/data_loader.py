@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from chamber_gui.models import CSV_COLUMNS, CsvSnapshot, NUMERIC_COLUMNS
+from chamber_gui.models import CSV_COLUMNS, CsvSnapshot, NUMERIC_COLUMNS, SourceMode
 
 
 @dataclass
@@ -16,6 +16,35 @@ class SnapshotCache:
     """In-memory cache to avoid reloading unchanged CSV data."""
 
     snapshot: CsvSnapshot | None = None
+    source_key: str | None = None
+
+
+def infer_source_mode(path: Path) -> SourceMode:
+    """Infers whether the source is a file or folder."""
+    if path.exists():
+        if path.is_dir():
+            return "folder"
+        return "file"
+    if path.suffix.lower() == ".csv":
+        return "file"
+    return "folder"
+
+
+def find_latest_csv(folder_path: Path) -> Path | None:
+    """Finds the most recently modified CSV under the folder."""
+    if not folder_path.exists() or not folder_path.is_dir():
+        return None
+    latest_path: Path | None = None
+    latest_mtime: float | None = None
+    for csv_path in folder_path.rglob("*.csv"):
+        try:
+            mtime = csv_path.stat().st_mtime
+        except OSError:
+            continue
+        if latest_mtime is None or mtime > latest_mtime:
+            latest_mtime = mtime
+            latest_path = csv_path
+    return latest_path
 
 
 def load_csv_snapshot(csv_path: Path, previous_mtime: float | None) -> CsvSnapshot:
@@ -94,10 +123,71 @@ def load_csv_snapshot(csv_path: Path, previous_mtime: float | None) -> CsvSnapsh
     )
 
 
-def get_latest_snapshot(cache: SnapshotCache, csv_path: Path) -> CsvSnapshot:
+def _warning_snapshot(
+    cache: SnapshotCache,
+    warning: str,
+    *,
+    file_exists: bool,
+) -> CsvSnapshot:
+    """Builds a warning snapshot, preserving last good data when available."""
+    if cache.snapshot and not cache.snapshot.data.empty:
+        cache.snapshot = CsvSnapshot(
+            data=cache.snapshot.data,
+            mtime=cache.snapshot.mtime,
+            file_exists=file_exists,
+            rows_loaded=cache.snapshot.rows_loaded,
+            parse_errors_count=cache.snapshot.parse_errors_count,
+            last_update_time=datetime.now(tz=UTC),
+            warning=warning,
+            data_changed=False,
+        )
+        return cache.snapshot
+
+    cache.snapshot = CsvSnapshot(
+        data=pd.DataFrame(),
+        mtime=None,
+        file_exists=file_exists,
+        rows_loaded=0,
+        parse_errors_count=0,
+        last_update_time=datetime.now(tz=UTC),
+        warning=warning,
+        data_changed=False,
+    )
+    return cache.snapshot
+
+
+def get_latest_snapshot(
+    cache: SnapshotCache,
+    csv_path: Path,
+    *,
+    source_mode: SourceMode | None = None,
+) -> CsvSnapshot:
     """Returns updated snapshot, reusing cached data when file is unchanged."""
+    mode = source_mode or infer_source_mode(csv_path)
+    resolved_path = csv_path
+    warning: str | None = None
+
+    if mode == "folder":
+        latest_csv = find_latest_csv(csv_path)
+        if latest_csv is None:
+            if not csv_path.exists():
+                warning = f"Folder not found: {csv_path}"
+            else:
+                warning = f"No CSV files found in folder: {csv_path}"
+        else:
+            resolved_path = latest_csv
+
+    source_key = f"{mode}:{resolved_path}" if warning is None else f"{mode}:{csv_path}"
+    if cache.source_key != source_key:
+        cache.snapshot = None
+        cache.source_key = source_key
+
+    if warning is not None:
+        file_exists = csv_path.exists() if mode == "folder" else False
+        return _warning_snapshot(cache, warning, file_exists=file_exists)
+
     previous_mtime = cache.snapshot.mtime if cache.snapshot else None
-    fresh = load_csv_snapshot(csv_path=csv_path, previous_mtime=previous_mtime)
+    fresh = load_csv_snapshot(csv_path=resolved_path, previous_mtime=previous_mtime)
 
     if cache.snapshot is None:
         cache.snapshot = fresh

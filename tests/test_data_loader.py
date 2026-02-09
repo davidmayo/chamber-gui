@@ -9,7 +9,9 @@ import pandas as pd
 
 from chamber_gui.data_loader import (
     SnapshotCache,
+    find_latest_csv,
     get_latest_snapshot,
+    infer_source_mode,
     load_csv_snapshot,
 )
 from chamber_gui.models import CSV_COLUMNS
@@ -152,3 +154,60 @@ def test_get_latest_snapshot_keeps_last_good_data_when_read_fails(
     assert second.rows_loaded == first.rows_loaded
     assert second.warning is not None
     assert "CSV read failed" in second.warning
+
+
+def test_infer_source_mode_handles_missing_paths(tmp_path: Path) -> None:
+    assert infer_source_mode(tmp_path / "missing.csv") == "file"
+    assert infer_source_mode(tmp_path / "missing-folder") == "folder"
+
+
+def test_find_latest_csv_picks_most_recent(tmp_path: Path) -> None:
+    folder = tmp_path / "runs"
+    folder.mkdir()
+    older = folder / "older.csv"
+    newer = folder / "newer.csv"
+    older.write_text("a,b\n1,2\n", encoding="utf-8")
+    newer.write_text("a,b\n3,4\n", encoding="utf-8")
+    os.utime(older, (1, 1))
+    os.utime(newer, (2, 2))
+    assert find_latest_csv(folder) == newer
+
+
+def test_get_latest_snapshot_folder_mode_warns_on_empty_folder(tmp_path: Path) -> None:
+    folder = tmp_path / "empty"
+    folder.mkdir()
+    cache = SnapshotCache()
+    snapshot = get_latest_snapshot(
+        cache=cache,
+        csv_path=folder,
+        source_mode="folder",
+    )
+    assert snapshot.data.empty is True
+    assert snapshot.warning is not None
+    assert "No CSV files found" in snapshot.warning
+
+
+def test_get_latest_snapshot_folder_mode_keeps_last_good_data(
+    tmp_path: Path,
+    sample_rows_df: pd.DataFrame,
+) -> None:
+    folder = tmp_path / "runs"
+    folder.mkdir()
+    csv_path = folder / "run.csv"
+    sample_rows_df.to_csv(csv_path, index=False)
+    cache = SnapshotCache()
+    first = get_latest_snapshot(
+        cache=cache,
+        csv_path=folder,
+        source_mode="folder",
+    )
+    assert first.data.empty is False
+
+    csv_path.unlink()
+    second = get_latest_snapshot(
+        cache=cache,
+        csv_path=folder,
+        source_mode="folder",
+    )
+    assert second.data.empty is False
+    assert second.warning is not None
