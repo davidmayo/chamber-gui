@@ -64,6 +64,7 @@ _PANEL_GROUPS = [
             "az-peak",
             "az-center",
             "el-peak",
+            "el-center",
             "az-el-peak-heat",
             "az-el-center-heat",
             "path-az-el",
@@ -76,6 +77,7 @@ _PANEL_GROUPS = [
             "pan-peak",
             "pan-center",
             "tilt-peak",
+            "tilt-center",
             "pan-tilt-peak-heat",
             "pan-tilt-center-heat",
             "path-pan-tilt",
@@ -98,7 +100,14 @@ _PANEL_GROUPS = [
     (
         "center",
         "Center Power",
-        ["az-center", "pan-center", "az-el-center-heat", "pan-tilt-center-heat"],
+        [
+            "az-center",
+            "el-center",
+            "pan-center",
+            "tilt-center",
+            "az-el-center-heat",
+            "pan-tilt-center-heat",
+        ],
     ),
 ]
 
@@ -149,8 +158,8 @@ def _build_modal_items(config: list[dict]) -> list:
     return items
 
 
-def _build_cut_mode_selector(current_mode: str) -> html.Div:
-    """Builds the polar cut mode radio selector for the modal."""
+def _build_modal_right_panel(current_mode: str, hpbw_enabled: bool) -> html.Div:
+    """Builds the right panel of the modal (cut mode + overlays)."""
     return html.Div(
         className="modal-cut-mode",
         children=[
@@ -163,6 +172,23 @@ def _build_cut_mode_selector(current_mode: str) -> html.Div:
                     {"label": "All", "value": "all"},
                 ],
                 value=current_mode,
+                className="cut-mode-radio",
+                labelClassName="cut-mode-option",
+            ),
+            html.Hr(
+                style={
+                    "margin": "14px 0",
+                    "border": "none",
+                    "border-top": "1px solid var(--line)",
+                }
+            ),
+            html.H4("Overlays", className="cut-mode-title"),
+            dcc.Checklist(
+                id="hpbw-checkbox",
+                options=[
+                    {"label": "Half Power Beam Width", "value": "enabled"},
+                ],
+                value=["enabled"] if hpbw_enabled else [],
                 className="cut-mode-radio",
                 labelClassName="cut-mode-option",
             ),
@@ -180,17 +206,32 @@ def create_app(csv_path: Path, poll_interval_ms: int = 1000) -> Dash:
         poll_interval_ms=poll_interval_ms,
         source_config=source_config,
     )
+
+    @app.server.after_request
+    def _no_cache_dash_api(response):
+        """Prevent browser from caching Dash API responses.
+
+        Without this, the browser may serve stale ``_dash-dependencies``
+        after the callback graph changes (e.g. adding a new Input),
+        causing IndexError in Dash's dispatch.
+        """
+        if "Cache-Control" not in response.headers:
+            response.headers["Cache-Control"] = "no-store"
+        return response
+
     cache = SnapshotCache()
 
     @app.callback(
         Output("az-peak", "figure"),
         Output("az-center", "figure"),
         Output("el-peak", "figure"),
+        Output("el-center", "figure"),
         Output("path-pan-tilt", "figure"),
         Output("power-time", "figure"),
         Output("pan-peak", "figure"),
         Output("pan-center", "figure"),
         Output("tilt-peak", "figure"),
+        Output("tilt-center", "figure"),
         Output("path-az-el", "figure"),
         Output("freq-time", "figure"),
         Output("az-el-peak-heat", "figure"),
@@ -203,14 +244,17 @@ def create_app(csv_path: Path, poll_interval_ms: int = 1000) -> Dash:
         Input("cut-mode", "data"),
         Input("graph-config", "data"),
         Input("source-config", "data"),
+        Input("hpbw-enabled", "data"),
     )
     def _refresh(
         _interval: int,
         cut_mode_data: str | None,
         _config_data: object,
         source_config_data: object,
+        hpbw_data: object,
     ):
         cut_mode = cut_mode_data if cut_mode_data in CUT_MODES else DEFAULT_CUT_MODE
+        hpbw_enabled = bool(hpbw_data)
         source_path = csv_path
         source_mode = infer_source_mode(csv_path)
         if isinstance(source_config_data, dict):
@@ -241,16 +285,20 @@ def create_app(csv_path: Path, poll_interval_ms: int = 1000) -> Dash:
         if not snapshot.data_changed and ctx.triggered_id == "poll-interval":
             return (*(dash.no_update for _ in GRAPH_IDS), info_panel, status_line)
 
-        figures = build_dashboard_figures(snapshot.data, cut_mode=cut_mode)
+        figures = build_dashboard_figures(
+            snapshot.data, cut_mode=cut_mode, hpbw_enabled=hpbw_enabled
+        )
         return (
             figures.az_peak,
             figures.az_center,
             figures.el_peak,
+            figures.el_center,
             figures.path_pan_tilt,
             figures.power_time,
             figures.pan_peak,
             figures.pan_center,
             figures.tilt_peak,
+            figures.tilt_center,
             figures.path_az_el,
             figures.freq_time,
             figures.az_el_peak_heat,
@@ -319,15 +367,17 @@ def create_app(csv_path: Path, poll_interval_ms: int = 1000) -> Dash:
         Input("open-config-btn", "n_clicks"),
         State("graph-config", "data"),
         State("cut-mode", "data"),
+        State("hpbw-enabled", "data"),
         prevent_initial_call=True,
     )
-    def _open_modal(_, config_data, cut_mode_data):
+    def _open_modal(_, config_data, cut_mode_data, hpbw_data):
         config = _normalize_config(config_data)
         current_mode = cut_mode_data if cut_mode_data in CUT_MODES else DEFAULT_CUT_MODE
+        hpbw_enabled = bool(hpbw_data)
         modal_content = [
             _build_modal_groups(config),
             html.Div(className="modal-items", children=_build_modal_items(config)),
-            _build_cut_mode_selector(current_mode),
+            _build_modal_right_panel(current_mode, hpbw_enabled),
         ]
         return "modal-overlay", modal_content, "hamburger-dropdown hidden"
 
@@ -346,6 +396,14 @@ def create_app(csv_path: Path, poll_interval_ms: int = 1000) -> Dash:
     )
     def _update_cut_mode(value):
         return value
+
+    @app.callback(
+        Output("hpbw-enabled", "data"),
+        Input("hpbw-checkbox", "value"),
+        prevent_initial_call=True,
+    )
+    def _update_hpbw(value):
+        return bool(value)
 
     clientside_callback(
         """
@@ -444,11 +502,13 @@ def _build_layout(poll_interval_ms: int, source_config: dict) -> html.Div:
                     _graph_panel("az-peak"),
                     _graph_panel("az-center"),
                     _graph_panel("el-peak"),
+                    _graph_panel("el-center"),
                     _graph_panel("path-pan-tilt"),
                     _graph_panel("power-time"),
                     _graph_panel("pan-peak"),
                     _graph_panel("pan-center"),
                     _graph_panel("tilt-peak"),
+                    _graph_panel("tilt-center"),
                     _graph_panel("path-az-el"),
                     _graph_panel("freq-time"),
                     _graph_panel("az-el-peak-heat"),
@@ -462,6 +522,7 @@ def _build_layout(poll_interval_ms: int, source_config: dict) -> html.Div:
             dcc.Store(id="graph-config", storage_type="memory", data=_default_config()),
             dcc.Store(id="cut-mode", storage_type="local", data=DEFAULT_CUT_MODE),
             dcc.Store(id="source-config", storage_type="memory", data=source_config),
+            dcc.Store(id="hpbw-enabled", storage_type="local", data=False),
             dcc.Interval(id="poll-interval", interval=poll_interval_ms, n_intervals=0),
         ],
     )

@@ -47,11 +47,13 @@ GRAPH_IDS = (
     "az-peak",
     "az-center",
     "el-peak",
+    "el-center",
     "path-pan-tilt",
     "power-time",
     "pan-peak",
     "pan-center",
     "tilt-peak",
+    "tilt-center",
     "path-az-el",
     "freq-time",
     "az-el-peak-heat",
@@ -68,17 +70,19 @@ DEFAULT_CUT_MODE = "auto-include"
 SourceMode = Literal["file", "folder"]
 
 HORIZONTAL_POLAR_IDS = frozenset({"az-peak", "az-center", "pan-peak", "pan-center"})
-VERTICAL_POLAR_IDS = frozenset({"el-peak", "tilt-peak"})
+VERTICAL_POLAR_IDS = frozenset({"el-peak", "el-center", "tilt-peak", "tilt-center"})
 
 PANEL_LABELS = {
     "az-peak": "Azimuth Peak Power",
     "az-center": "Azimuth Center Power",
     "el-peak": "Elevation Peak Power",
+    "el-center": "Elevation Center Power",
     "path-pan-tilt": "Path of Travel (Pan/Tilt)",
     "power-time": "Power vs Time",
     "pan-peak": "Pan Peak Power",
     "pan-center": "Pan Center Power",
     "tilt-peak": "Tilt Peak Power",
+    "tilt-center": "Tilt Center Power",
     "path-az-el": "Path of Travel (Az/El)",
     "freq-time": "Frequency vs Time",
     "az-el-peak-heat": "Az/El Peak Power Heatmap",
@@ -121,11 +125,13 @@ class DashboardFigures:
     az_peak: go.Figure
     az_center: go.Figure
     el_peak: go.Figure
+    el_center: go.Figure
     path_pan_tilt: go.Figure
     power_time: go.Figure
     pan_peak: go.Figure
     pan_center: go.Figure
     tilt_peak: go.Figure
+    tilt_center: go.Figure
     path_az_el: go.Figure
     freq_time: go.Figure
     az_el_peak_heat: go.Figure

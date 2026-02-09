@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from typing import Iterable
 
 import pandas as pd
@@ -9,6 +10,7 @@ import plotly.graph_objects as go
 
 import plotly.colors
 
+from chamber_gui.hpbw import build_hpbw_traces, compute_hpbw
 from chamber_gui.models import (
     CSV_COLUMNS,
     DashboardFigures,
@@ -101,12 +103,13 @@ def _polar_figure(
     title: str,
     compass_orientation: bool = False,
     color_map: dict[str, str] | None = None,
+    hpbw_enabled: bool = False,
 ) -> go.Figure:
     required = {theta_column, r_column}
     if data.empty or not required.issubset(set(data.columns)):
         return _empty_figure(title)
 
-    fig = go.Figure()
+    data_traces: list[go.Scatterpolar] = []
     if CSV_COLUMNS["cut_id"] in data.columns:
         for cut_id, subset in data.groupby(CSV_COLUMNS["cut_id"], dropna=False):
             clean = subset[[theta_column, r_column]].dropna()
@@ -115,7 +118,7 @@ def _polar_figure(
             marker: dict[str, object] = {}
             if color_map and str(cut_id) in color_map:
                 marker["color"] = color_map[str(cut_id)]
-            fig.add_trace(
+            data_traces.append(
                 go.Scatterpolar(
                     theta=clean[theta_column],
                     r=clean[r_column],
@@ -126,7 +129,7 @@ def _polar_figure(
             )
     else:
         clean = data[[theta_column, r_column]].dropna()
-        fig.add_trace(
+        data_traces.append(
             go.Scatterpolar(
                 theta=clean[theta_column],
                 r=clean[r_column],
@@ -134,6 +137,26 @@ def _polar_figure(
                 name="data",
             )
         )
+
+    # Compute explicit radial axis range from data traces.
+    all_thetas: list[float] = []
+    all_rs: list[float] = []
+    for trace in data_traces:
+        all_thetas.extend(trace.theta)
+        all_rs.extend(trace.r)
+    r_max = math.ceil(max(all_rs)) + 1 if all_rs else 0
+    r_min = math.floor(min(r_max - 10, min(all_rs)) - 1) if all_rs else -10
+
+    # Add HPBW overlays first so they render below data points.
+    fig = go.Figure()
+    if hpbw_enabled and all_rs:
+        result = compute_hpbw(all_thetas, all_rs)
+        if result is not None:
+            for overlay in build_hpbw_traces(result, r_min):
+                fig.add_trace(overlay)
+
+    for trace in data_traces:
+        fig.add_trace(trace)
 
     tick_vals = list(range(0, 360, 15))
     tick_text = [
@@ -155,11 +178,15 @@ def _polar_figure(
         margin={"l": 24, "r": 24, "t": 48, "b": 24},
         polar={
             "angularaxis": angularaxis,
-            "radialaxis": {"rangemode": "normal", "layer": "below traces"},
+            "radialaxis": {
+                "range": [r_min, r_max],
+                "layer": "below traces",
+            },
         },
         showlegend=True,
         legend=_LEGEND,
     )
+
     return fig
 
 
@@ -299,6 +326,7 @@ def _heatmap_figure(
 def build_dashboard_figures(
     data: pd.DataFrame,
     cut_mode: str = "auto-include",
+    hpbw_enabled: bool = False,
 ) -> DashboardFigures:
     """Builds all dashboard figures from a DataFrame."""
     cut_col = CSV_COLUMNS["cut_id"]
@@ -319,6 +347,7 @@ def build_dashboard_figures(
             title="Azimuth Peak Power",
             compass_orientation=True,
             color_map=color_map,
+            hpbw_enabled=hpbw_enabled,
         ),
         az_center=_polar_figure(
             data=polar_data("az-center"),
@@ -327,6 +356,7 @@ def build_dashboard_figures(
             title="Azimuth Center Power",
             compass_orientation=True,
             color_map=color_map,
+            hpbw_enabled=hpbw_enabled,
         ),
         el_peak=_polar_figure(
             data=polar_data("el-peak"),
@@ -334,6 +364,15 @@ def build_dashboard_figures(
             r_column=CSV_COLUMNS["peak_power_dbm"],
             title="Elevation Peak Power",
             color_map=color_map,
+            hpbw_enabled=hpbw_enabled,
+        ),
+        el_center=_polar_figure(
+            data=polar_data("el-center"),
+            theta_column=CSV_COLUMNS["commanded_elevation"],
+            r_column=CSV_COLUMNS["center_power_dbm"],
+            title="Elevation Center Power",
+            color_map=color_map,
+            hpbw_enabled=hpbw_enabled,
         ),
         path_pan_tilt=_path_figure(
             data=data,
@@ -354,6 +393,7 @@ def build_dashboard_figures(
             title="Pan Peak Power",
             compass_orientation=True,
             color_map=color_map,
+            hpbw_enabled=hpbw_enabled,
         ),
         pan_center=_polar_figure(
             data=polar_data("pan-center"),
@@ -362,6 +402,7 @@ def build_dashboard_figures(
             title="Pan Center Power",
             compass_orientation=True,
             color_map=color_map,
+            hpbw_enabled=hpbw_enabled,
         ),
         tilt_peak=_polar_figure(
             data=polar_data("tilt-peak"),
@@ -369,6 +410,15 @@ def build_dashboard_figures(
             r_column=CSV_COLUMNS["peak_power_dbm"],
             title="Tilt Peak Power",
             color_map=color_map,
+            hpbw_enabled=hpbw_enabled,
+        ),
+        tilt_center=_polar_figure(
+            data=polar_data("tilt-center"),
+            theta_column=CSV_COLUMNS["commanded_tilt"],
+            r_column=CSV_COLUMNS["center_power_dbm"],
+            title="Tilt Center Power",
+            color_map=color_map,
+            hpbw_enabled=hpbw_enabled,
         ),
         path_az_el=_path_figure(
             data=data,
