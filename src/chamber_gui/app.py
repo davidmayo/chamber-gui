@@ -187,6 +187,19 @@ def create_app(csv_path: Path, poll_interval_ms: int = 1000) -> Dash:
     app = Dash(__name__, update_title=None, suppress_callback_exceptions=True)
     app.index_string = APP_INDEX_TEMPLATE
     app.layout = _build_layout(poll_interval_ms=poll_interval_ms)
+
+    @app.server.after_request
+    def _no_cache_dash_api(response):
+        """Prevent browser from caching Dash API responses.
+
+        Without this, the browser may serve stale ``_dash-dependencies``
+        after the callback graph changes (e.g. adding a new Input),
+        causing IndexError in Dash's dispatch.
+        """
+        if "Cache-Control" not in response.headers:
+            response.headers["Cache-Control"] = "no-store"
+        return response
+
     cache = SnapshotCache()
 
     @app.callback(
