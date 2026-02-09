@@ -10,6 +10,13 @@ From the repository root:
 uv run chamber-gui
 ```
 
+To point the app at a CSV file or a folder of CSVs:
+
+```sh
+uv run chamber-gui --path /path/to/folder/
+uv run chamber-gui --path /path/to/file.csv
+```
+
 The Dash server starts at:
 
 - `http://127.0.0.1:8050/` by default
