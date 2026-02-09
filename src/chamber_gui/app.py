@@ -9,7 +9,11 @@ import pandas as pd
 import dash
 from dash import Dash, Input, Output, State, clientside_callback, ctx, dcc, html
 
-from chamber_gui.data_loader import SnapshotCache, get_latest_snapshot
+from chamber_gui.data_loader import (
+    SnapshotCache,
+    get_latest_snapshot,
+    infer_source_mode,
+)
 from chamber_gui.figures import build_dashboard_figures
 from chamber_gui.models import (
     CSV_COLUMNS,
@@ -169,7 +173,12 @@ def create_app(csv_path: Path, poll_interval_ms: int = 1000) -> Dash:
     """Creates and configures the Dash app."""
     app = Dash(__name__, update_title=None, suppress_callback_exceptions=True)
     app.index_string = APP_INDEX_TEMPLATE
-    app.layout = _build_layout(poll_interval_ms=poll_interval_ms)
+    source_mode = infer_source_mode(csv_path)
+    source_config = {"path": str(csv_path), "mode": source_mode}
+    app.layout = _build_layout(
+        poll_interval_ms=poll_interval_ms,
+        source_config=source_config,
+    )
     cache = SnapshotCache()
 
     @app.callback(
@@ -191,10 +200,29 @@ def create_app(csv_path: Path, poll_interval_ms: int = 1000) -> Dash:
         Input("poll-interval", "n_intervals"),
         Input("cut-mode", "data"),
         Input("graph-config", "data"),
+        Input("source-config", "data"),
     )
-    def _refresh(_interval: int, cut_mode_data: str | None, _config_data: object):
+    def _refresh(
+        _interval: int,
+        cut_mode_data: str | None,
+        _config_data: object,
+        source_config_data: object,
+    ):
         cut_mode = cut_mode_data if cut_mode_data in CUT_MODES else DEFAULT_CUT_MODE
-        snapshot = get_latest_snapshot(cache=cache, csv_path=csv_path)
+        source_path = csv_path
+        source_mode = infer_source_mode(csv_path)
+        if isinstance(source_config_data, dict):
+            raw_path = source_config_data.get("path")
+            raw_mode = source_config_data.get("mode")
+            if isinstance(raw_path, str) and raw_path:
+                source_path = Path(raw_path)
+            if raw_mode in {"file", "folder"}:
+                source_mode = raw_mode
+        snapshot = get_latest_snapshot(
+            cache=cache,
+            csv_path=source_path,
+            source_mode=source_mode,
+        )
         info_panel = _build_info_panel(snapshot=snapshot)
 
         if not snapshot.data_changed and ctx.triggered_id == "poll-interval":
@@ -229,6 +257,46 @@ def create_app(csv_path: Path, poll_interval_ms: int = 1000) -> Dash:
         if current_class and "hidden" in current_class:
             return "hamburger-dropdown"
         return "hamburger-dropdown hidden"
+
+    @app.callback(
+        Output("source-config", "data"),
+        Input("open-source-file-btn", "n_clicks"),
+        Input("open-source-folder-btn", "n_clicks"),
+        prevent_initial_call=True,
+    )
+    def _select_source(_file_clicks, _folder_clicks):
+        if ctx.triggered_id not in {
+            "open-source-file-btn",
+            "open-source-folder-btn",
+        }:
+            return dash.no_update
+        try:
+            from tkinter import TclError, Tk, filedialog
+        except ImportError:
+            return dash.no_update
+
+        root = Tk()
+        root.withdraw()
+        try:
+            root.wm_attributes("-topmost", 1)
+        except TclError:
+            pass
+
+        if ctx.triggered_id == "open-source-file-btn":
+            selected = filedialog.askopenfilename(
+                title="Select CSV File",
+                filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
+            )
+            mode = "file"
+        else:
+            selected = filedialog.askdirectory(title="Select CSV Folder")
+            mode = "folder"
+
+        root.destroy()
+
+        if not selected:
+            return dash.no_update
+        return {"path": selected, "mode": mode}
 
     @app.callback(
         Output("config-modal-overlay", "className"),
@@ -299,7 +367,7 @@ def create_app(csv_path: Path, poll_interval_ms: int = 1000) -> Dash:
     return app
 
 
-def _build_layout(poll_interval_ms: int) -> html.Div:
+def _build_layout(poll_interval_ms: int, source_config: dict) -> html.Div:
     return html.Div(
         className="page",
         children=[
@@ -315,6 +383,16 @@ def _build_layout(poll_interval_ms: int) -> html.Div:
                             html.Button(
                                 "Select Graphs",
                                 id="open-config-btn",
+                                className="dropdown-item",
+                            ),
+                            html.Button(
+                                "Source CSV",
+                                id="open-source-file-btn",
+                                className="dropdown-item",
+                            ),
+                            html.Button(
+                                "Source Folder",
+                                id="open-source-folder-btn",
                                 className="dropdown-item",
                             ),
                         ],
@@ -368,6 +446,7 @@ def _build_layout(poll_interval_ms: int) -> html.Div:
             html.Button(id="config-sync-btn", style={"display": "none"}, n_clicks=0),
             dcc.Store(id="graph-config", storage_type="memory", data=_default_config()),
             dcc.Store(id="cut-mode", storage_type="local", data=DEFAULT_CUT_MODE),
+            dcc.Store(id="source-config", storage_type="memory", data=source_config),
             dcc.Interval(id="poll-interval", interval=poll_interval_ms, n_intervals=0),
         ],
     )
