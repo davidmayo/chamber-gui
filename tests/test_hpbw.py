@@ -164,15 +164,15 @@ def test_build_hpbw_traces_line_styles() -> None:
     # Max power circle: thick solid black.
     assert traces[0].line.color == "black"
     assert traces[0].line.width == 3
-    # Half power circle: thin dashed black.
+    # Half power circle: dashed black, same thickness.
     assert traces[1].line.color == "black"
-    assert traces[1].line.width == 1
+    assert traces[1].line.width == 3
     assert traces[1].line.dash == "dash"
-    # Left/right radial lines: thick solid black.
+    # Left/right radial lines: solid black.
     assert traces[2].line.width == 3
     assert traces[3].line.width == 3
-    # Max theta radial line: thin dashed black.
-    assert traces[4].line.width == 1
+    # Max theta radial line: dashed black, same thickness.
+    assert traces[4].line.width == 3
     assert traces[4].line.dash == "dash"
 
 

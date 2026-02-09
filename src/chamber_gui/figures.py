@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from typing import Iterable
 
 import pandas as pd
@@ -137,6 +138,16 @@ def _polar_figure(
             )
         )
 
+    # Compute explicit radial axis range from data traces.
+    all_thetas: list[float] = []
+    all_rs: list[float] = []
+    if fig.data:
+        for trace in fig.data:
+            all_thetas.extend(trace.theta)
+            all_rs.extend(trace.r)
+    r_max = math.ceil(max(all_rs)) + 1 if all_rs else 0
+    r_min = min(r_max - 20, min(all_rs)) if all_rs else -20
+
     tick_vals = list(range(0, 360, 15))
     tick_text = [
         f"{v - 360}°" if v % 45 == 0 and v > 180 else f"{v}°" if v % 45 == 0 else ""
@@ -157,21 +168,18 @@ def _polar_figure(
         margin={"l": 24, "r": 24, "t": 48, "b": 24},
         polar={
             "angularaxis": angularaxis,
-            "radialaxis": {"rangemode": "normal", "layer": "below traces"},
+            "radialaxis": {
+                "range": [r_min, r_max],
+                "layer": "below traces",
+            },
         },
         showlegend=True,
         legend=_LEGEND,
     )
 
-    if hpbw_enabled and fig.data:
-        all_thetas: list[float] = []
-        all_rs: list[float] = []
-        for trace in fig.data:
-            all_thetas.extend(trace.theta)
-            all_rs.extend(trace.r)
+    if hpbw_enabled and all_rs:
         result = compute_hpbw(all_thetas, all_rs)
         if result is not None:
-            r_min = min(all_rs)
             for overlay in build_hpbw_traces(result, r_min):
                 fig.add_trace(overlay)
 

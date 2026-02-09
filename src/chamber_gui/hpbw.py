@@ -108,12 +108,12 @@ def build_hpbw_traces(
             name=result.label,
             showlegend=True,
         ),
-        # Half power circle (thin, dashed, black).
+        # Half power circle (dashed, black).
         go.Scatterpolar(
             theta=_CIRCLE_THETAS,
             r=[result.half_power] * len(_CIRCLE_THETAS),
             mode="lines",
-            line={"color": "black", "width": 1, "dash": "dash"},
+            line={"color": "black", "width": 3, "dash": "dash"},
             name="half-power",
             showlegend=False,
         ),
@@ -135,12 +135,12 @@ def build_hpbw_traces(
             name="right",
             showlegend=False,
         ),
-        # Max theta radial line (thin, dashed, black).
+        # Max theta radial line (dashed, black).
         go.Scatterpolar(
             theta=[result.max_theta, result.max_theta],
             r=[r_min, result.max_r],
             mode="lines",
-            line={"color": "black", "width": 1, "dash": "dash"},
+            line={"color": "black", "width": 3, "dash": "dash"},
             name="max-theta",
             showlegend=False,
         ),
