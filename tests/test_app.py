@@ -12,6 +12,7 @@ from chamber_gui.app import (
     _build_info_panel,
     _build_modal_groups,
     _build_modal_items,
+    _build_source_status,
     _default_config,
     _format_number,
     _format_timestamp,
@@ -184,3 +185,13 @@ def test_build_info_panel_includes_source_details() -> None:
     items = info[1].children
     assert any("Source mode: folder" in item.children for item in items)
     assert any("Source path: /tmp/runs" in item.children for item in items)
+
+
+def test_build_source_status_formats_message() -> None:
+    status = _build_source_status(
+        source_mode="folder",
+        source_path=Path("/tmp/runs"),
+        resolved_csv=Path("/tmp/runs/run.csv"),
+    )
+    assert "Source: folder" in status
+    assert "Resolved CSV: /tmp/runs/run.csv" in status

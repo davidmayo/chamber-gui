@@ -11,6 +11,7 @@ from dash import Dash, Input, Output, State, clientside_callback, ctx, dcc, html
 
 from chamber_gui.data_loader import (
     SnapshotCache,
+    find_latest_csv,
     get_latest_snapshot,
     infer_source_mode,
 )
@@ -197,6 +198,7 @@ def create_app(csv_path: Path, poll_interval_ms: int = 1000) -> Dash:
         Output("pan-tilt-peak-heat", "figure"),
         Output("pan-tilt-center-heat", "figure"),
         Output("panel-info", "children"),
+        Output("source-status", "children"),
         Input("poll-interval", "n_intervals"),
         Input("cut-mode", "data"),
         Input("graph-config", "data"),
@@ -223,13 +225,21 @@ def create_app(csv_path: Path, poll_interval_ms: int = 1000) -> Dash:
             csv_path=source_path,
             source_mode=source_mode,
         )
+        resolved_csv = source_path
+        if source_mode == "folder":
+            resolved_csv = find_latest_csv(source_path)
+        status_line = _build_source_status(
+            source_mode=source_mode,
+            source_path=source_path,
+            resolved_csv=resolved_csv,
+        )
         info_panel = _build_info_panel(
             snapshot=snapshot,
             source_config=source_config_data,
         )
 
         if not snapshot.data_changed and ctx.triggered_id == "poll-interval":
-            return (*(dash.no_update for _ in GRAPH_IDS), info_panel)
+            return (*(dash.no_update for _ in GRAPH_IDS), info_panel, status_line)
 
         figures = build_dashboard_figures(snapshot.data, cut_mode=cut_mode)
         return (
@@ -248,6 +258,7 @@ def create_app(csv_path: Path, poll_interval_ms: int = 1000) -> Dash:
             figures.pan_tilt_peak_heat,
             figures.pan_tilt_center_heat,
             info_panel,
+            status_line,
         )
 
     @app.callback(
@@ -426,6 +437,7 @@ def _build_layout(poll_interval_ms: int, source_config: dict) -> html.Div:
                 ],
             ),
             html.H1("Chamber Monitoring", className="title"),
+            html.Div(id="source-status", className="status-line"),
             html.Div(
                 className="grid",
                 children=[
@@ -510,6 +522,18 @@ def _build_info_panel(snapshot, source_config: object | None = None) -> list:
             ]
         ),
     ]
+
+
+def _build_source_status(
+    source_mode: str,
+    source_path: Path,
+    resolved_csv: Path | None,
+) -> str:
+    resolved_text = str(resolved_csv) if resolved_csv is not None else "N/A"
+    return (
+        f"Source: {source_mode} ({source_path})"
+        f" | Resolved CSV: {resolved_text}"
+    )
 
 
 def _safe_latest_row(data: pd.DataFrame) -> dict:
