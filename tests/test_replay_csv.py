@@ -4,11 +4,13 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from pathlib import Path
+import sys
 
 import pandas as pd
 import pytest
 
 from chamber_gui.models import CSV_COLUMNS
+import chamber_gui.replay_csv as replay_csv_module
 from chamber_gui.replay_csv import replay_csv
 
 
@@ -40,6 +42,7 @@ def test_replay_csv_updates_timestamps(tmp_path: Path) -> None:
         input_path=input_path,
         output_path=output_path,
         pave=False,
+        speed=1.0,
         now=now,
         sleep_fn=lambda _: None,
     )
@@ -102,3 +105,74 @@ def test_replay_csv_sleeps_for_timestamp_deltas(tmp_path: Path) -> None:
     )
 
     assert sleeps == [10.0]
+
+
+def test_replay_csv_scales_sleep_by_speed(tmp_path: Path) -> None:
+    input_path = tmp_path / "input.csv"
+    _write_sample_csv(input_path)
+    output_path = tmp_path / "out.csv"
+    sleeps: list[float] = []
+
+    def _sleep(seconds: float) -> None:
+        sleeps.append(seconds)
+
+    replay_csv(
+        input_path=input_path,
+        output_path=output_path,
+        pave=False,
+        speed=4.0,
+        now=datetime(2026, 2, 1, 13, 0, 0, tzinfo=UTC),
+        sleep_fn=_sleep,
+    )
+
+    assert sleeps == [2.5]
+
+
+@pytest.mark.parametrize(
+    "speed",
+    [0.0, -1.0, float("nan"), float("inf")],
+)
+def test_replay_csv_rejects_invalid_speed(tmp_path: Path, speed: float) -> None:
+    input_path = tmp_path / "input.csv"
+    _write_sample_csv(input_path)
+    output_path = tmp_path / "out.csv"
+
+    with pytest.raises(ValueError, match="finite positive number"):
+        replay_csv(
+            input_path=input_path,
+            output_path=output_path,
+            pave=False,
+            speed=speed,
+            now=datetime(2026, 2, 1, 13, 0, 0, tzinfo=UTC),
+            sleep_fn=lambda _: None,
+        )
+
+
+def test_main_passes_speed_to_replay_csv(monkeypatch, tmp_path: Path) -> None:
+    captured: dict[str, object] = {}
+
+    def _fake_replay_csv(**kwargs: object) -> None:
+        captured.update(kwargs)
+
+    input_path = tmp_path / "input.csv"
+    output_path = tmp_path / "output.csv"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "replay-csv",
+            "--input",
+            str(input_path),
+            "--output",
+            str(output_path),
+            "--speed",
+            "4",
+        ],
+    )
+    monkeypatch.setattr(replay_csv_module, "replay_csv", _fake_replay_csv)
+
+    replay_csv_module.main()
+
+    assert captured["input_path"] == input_path
+    assert captured["output_path"] == output_path
+    assert captured["speed"] == 4.0
