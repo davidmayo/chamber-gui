@@ -223,7 +223,10 @@ def create_app(csv_path: Path, poll_interval_ms: int = 1000) -> Dash:
             csv_path=source_path,
             source_mode=source_mode,
         )
-        info_panel = _build_info_panel(snapshot=snapshot)
+        info_panel = _build_info_panel(
+            snapshot=snapshot,
+            source_config=source_config_data,
+        )
 
         if not snapshot.data_changed and ctx.triggered_id == "poll-interval":
             return (*(dash.no_update for _ in GRAPH_IDS), info_panel)
@@ -460,13 +463,25 @@ def _graph_panel(graph_id: str) -> html.Div:
     )
 
 
-def _build_info_panel(snapshot) -> list:
+def _build_info_panel(snapshot, source_config: object | None = None) -> list:
+    source_mode = "N/A"
+    source_path = "N/A"
+    if isinstance(source_config, dict):
+        mode = source_config.get("mode")
+        path = source_config.get("path")
+        if isinstance(mode, str):
+            source_mode = mode
+        if isinstance(path, str) and path:
+            source_path = path
+
     latest_row = _safe_latest_row(snapshot.data)
     return [
         html.H3("Run Info"),
         html.Ul(
             children=[
                 html.Li(f"File exists: {snapshot.file_exists}"),
+                html.Li(f"Source mode: {source_mode}"),
+                html.Li(f"Source path: {source_path}"),
                 html.Li(f"Rows loaded: {snapshot.rows_loaded}"),
                 html.Li(f"Parse errors: {snapshot.parse_errors_count}"),
                 html.Li(

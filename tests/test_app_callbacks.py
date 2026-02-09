@@ -80,4 +80,4 @@ def test_refresh_callback_returns_figures_and_info_panel(callback_lookup) -> Non
     info_panel = outputs[-1]
     assert isinstance(info_panel, list)
     assert info_panel[0].children == "Run Info"
-    assert len(info_panel[1].children) == 11
+    assert len(info_panel[1].children) == 13
