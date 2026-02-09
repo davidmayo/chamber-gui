@@ -52,3 +52,8 @@ $env:CHAMBER_GUI_CSV="sample_data/run_data.csv"
 $env:CHAMBER_GUI_POLL_MS="500"
 uv run chamber-gui
 ```
+
+## Changelog
+
+0.2.0 - 2026-02-09
+First usable version
