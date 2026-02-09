@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
+import pandas as pd
 import plotly.graph_objects as go
 
 from chamber_gui.app import create_app
-from chamber_gui.models import PANEL_IDS
+from chamber_gui.models import CSV_COLUMNS, PANEL_IDS
 
 
 def test_app_registers_expected_callback_names() -> None:
@@ -91,3 +93,38 @@ def test_refresh_callback_returns_figures_and_info_panel(callback_lookup) -> Non
     assert len(info_panel[1].children) == 13
     status_line = outputs[-1]
     assert isinstance(status_line, str)
+
+
+def test_refresh_callback_preserves_cut_colors_when_new_cut_id_is_added(
+    sample_rows_df: pd.DataFrame,
+    tmp_path: Path,
+) -> None:
+    csv_path = tmp_path / "run_data.csv"
+    cut_col = CSV_COLUMNS["cut_id"]
+    initial = sample_rows_df.copy()
+    initial[cut_col] = ["A", "A", "B", "B"]
+    initial.to_csv(csv_path, index=False)
+    os.utime(csv_path, (2, 2))
+
+    app = create_app(csv_path=csv_path, poll_interval_ms=250)
+    callback = next(
+        callback_def["callback"].__wrapped__
+        for callback_def in app.callback_map.values()
+        if callback_def["callback"].__wrapped__.__name__ == "_refresh"
+    )
+
+    first = callback(0, "auto-include", None, None, False)
+    first_colors = {trace.name: trace.marker.color for trace in first[0].data}
+    assert first_colors["A"] != first_colors["B"]
+
+    next_row = initial.iloc[-1:].copy()
+    next_row[cut_col] = "A-early"
+    updated = pd.concat([initial, next_row], ignore_index=True)
+    updated.to_csv(csv_path, index=False)
+    os.utime(csv_path, (3, 3))
+
+    second = callback(1, "auto-include", None, None, False)
+    second_colors = {trace.name: trace.marker.color for trace in second[0].data}
+    assert second_colors["A"] == first_colors["A"]
+    assert second_colors["B"] == first_colors["B"]
+    assert "A-early" in second_colors
