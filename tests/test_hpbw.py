@@ -69,24 +69,24 @@ def test_compute_hpbw_nan_values_are_dropped() -> None:
 def test_compute_hpbw_peak_at_left_edge() -> None:
     """Peak at the leftmost point; left endpoint defaults to edge."""
     thetas = [0.0, 10.0, 20.0, 30.0]
-    rs = [-10.0, -14.0, -18.0, -22.0]
+    rs = [-10.0, -12.0, -18.0, -22.0]
     result = compute_hpbw(thetas, rs)
     assert result is not None
     assert result.max_theta == 0.0
     assert result.left_theta == 0.0
-    # -14 is above half_power (-13.01), -18 is below
+    # -12 is above half_power (-13.01), -18 is below
     assert result.right_theta == 10.0
 
 
 def test_compute_hpbw_peak_at_right_edge() -> None:
     """Peak at the rightmost point; right endpoint defaults to edge."""
     thetas = [0.0, 10.0, 20.0, 30.0]
-    rs = [-22.0, -18.0, -14.0, -10.0]
+    rs = [-22.0, -18.0, -12.0, -10.0]
     result = compute_hpbw(thetas, rs)
     assert result is not None
     assert result.max_theta == 30.0
     assert result.right_theta == 30.0
-    # -14 is above half_power (-13.01), -18 is below
+    # -12 is above half_power (-13.01), -18 is below
     assert result.left_theta == 20.0
 
 
