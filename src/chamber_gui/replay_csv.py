@@ -7,6 +7,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 import sys
 import csv
+import time
+from collections.abc import Callable
 
 import pandas as pd
 
@@ -57,6 +59,7 @@ def replay_csv(
     output_path: Path,
     pave: bool = False,
     now: datetime | None = None,
+    sleep_fn: Callable[[float], None] | None = None,
 ) -> None:
     """Reads input CSV and writes a replayed CSV with updated timestamps."""
     if not input_path.exists():
@@ -72,8 +75,9 @@ def replay_csv(
     if timestamp_field not in fieldnames:
         raise ValueError(f"Missing timestamp column '{timestamp_field}' in {input_path}")
 
-    first_ts = _parse_timestamp(rows[0][timestamp_field])
-    last_ts = _parse_timestamp(rows[-1][timestamp_field])
+    timestamps = [_parse_timestamp(row[timestamp_field]) for row in rows]
+    first_ts = timestamps[0]
+    last_ts = timestamps[-1]
     duration = last_ts - first_ts
     duration_seconds = int(duration.total_seconds())
     print(f"Contains {row_count} rows, with a duration of {duration_seconds} seconds.")
@@ -106,8 +110,13 @@ def replay_csv(
     with output_path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=fieldnames)
         writer.writeheader()
+        sleep_impl = sleep_fn or time.sleep
         for idx, row in enumerate(rows, start=1):
-            original_ts = _parse_timestamp(row[timestamp_field])
+            original_ts = timestamps[idx - 1]
+            if idx > 1:
+                delta_seconds = (original_ts - timestamps[idx - 2]).total_seconds()
+                if delta_seconds > 0:
+                    sleep_impl(delta_seconds)
             new_ts = original_ts + offset
             row[timestamp_field] = _format_timestamp(new_ts)
             writer.writerow(row)

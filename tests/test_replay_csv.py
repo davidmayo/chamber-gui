@@ -41,6 +41,7 @@ def test_replay_csv_updates_timestamps(tmp_path: Path) -> None:
         output_path=output_path,
         pave=False,
         now=now,
+        sleep_fn=lambda _: None,
     )
 
     result = pd.read_csv(output_path)
@@ -61,6 +62,7 @@ def test_replay_csv_raises_when_output_exists_without_pave(tmp_path: Path) -> No
             output_path=output_path,
             pave=False,
             now=datetime(2026, 2, 1, 13, 0, 0, tzinfo=UTC),
+            sleep_fn=lambda _: None,
         )
 
 
@@ -75,7 +77,28 @@ def test_replay_csv_overwrites_when_pave(tmp_path: Path) -> None:
         output_path=output_path,
         pave=True,
         now=datetime(2026, 2, 1, 13, 0, 0, tzinfo=UTC),
+        sleep_fn=lambda _: None,
     )
 
     result = pd.read_csv(output_path)
     assert len(result.index) == 2
+
+
+def test_replay_csv_sleeps_for_timestamp_deltas(tmp_path: Path) -> None:
+    input_path = tmp_path / "input.csv"
+    _write_sample_csv(input_path)
+    output_path = tmp_path / "out.csv"
+    sleeps: list[float] = []
+
+    def _sleep(seconds: float) -> None:
+        sleeps.append(seconds)
+
+    replay_csv(
+        input_path=input_path,
+        output_path=output_path,
+        pave=False,
+        now=datetime(2026, 2, 1, 13, 0, 0, tzinfo=UTC),
+        sleep_fn=_sleep,
+    )
+
+    assert sleeps == [10.0]
