@@ -81,7 +81,7 @@ def test_update_hpbw_callback(callback_lookup) -> None:
 def test_refresh_callback_returns_figures_and_info_panel(callback_lookup) -> None:
     callback = callback_lookup("_refresh")
     outputs = callback(0, "auto-include", None, False)
-    assert len(outputs) == 15
+    assert len(outputs) == 17
     for figure in outputs[:-1]:
         assert isinstance(figure, go.Figure)
     info_panel = outputs[-1]

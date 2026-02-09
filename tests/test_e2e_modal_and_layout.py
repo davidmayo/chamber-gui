@@ -85,4 +85,4 @@ def test_e2e_modal_group_toggle_and_reorder_updates_layout(
         """,
     )
 
-    dash_duo.wait_for_style_to_equal("#panel-az-peak", "order", "4", timeout=10)
+    dash_duo.wait_for_style_to_equal("#panel-az-peak", "order", "5", timeout=10)
