@@ -148,9 +148,9 @@ def test_polar_figure_hpbw_enabled_adds_overlay_traces(
     figures = build_dashboard_figures(
         _parsed_dataframe(sample_rows_df), hpbw_enabled=True
     )
-    # az_peak: 2 data traces + 5 HPBW overlays = 7.
+    # az_peak: 5 HPBW overlays + 2 data traces = 7.
     assert len(figures.az_peak.data) == 7
-    hpbw_traces = figures.az_peak.data[2:]
+    hpbw_traces = figures.az_peak.data[:5]
     assert all(trace.mode == "lines" for trace in hpbw_traces)
     # The first overlay trace carries the HPBW legend label.
     assert "HPBW:" in hpbw_traces[0].name

@@ -109,7 +109,7 @@ def _polar_figure(
     if data.empty or not required.issubset(set(data.columns)):
         return _empty_figure(title)
 
-    fig = go.Figure()
+    data_traces: list[go.Scatterpolar] = []
     if CSV_COLUMNS["cut_id"] in data.columns:
         for cut_id, subset in data.groupby(CSV_COLUMNS["cut_id"], dropna=False):
             clean = subset[[theta_column, r_column]].dropna()
@@ -118,7 +118,7 @@ def _polar_figure(
             marker: dict[str, object] = {}
             if color_map and str(cut_id) in color_map:
                 marker["color"] = color_map[str(cut_id)]
-            fig.add_trace(
+            data_traces.append(
                 go.Scatterpolar(
                     theta=clean[theta_column],
                     r=clean[r_column],
@@ -129,7 +129,7 @@ def _polar_figure(
             )
     else:
         clean = data[[theta_column, r_column]].dropna()
-        fig.add_trace(
+        data_traces.append(
             go.Scatterpolar(
                 theta=clean[theta_column],
                 r=clean[r_column],
@@ -141,12 +141,22 @@ def _polar_figure(
     # Compute explicit radial axis range from data traces.
     all_thetas: list[float] = []
     all_rs: list[float] = []
-    if fig.data:
-        for trace in fig.data:
-            all_thetas.extend(trace.theta)
-            all_rs.extend(trace.r)
+    for trace in data_traces:
+        all_thetas.extend(trace.theta)
+        all_rs.extend(trace.r)
     r_max = math.ceil(max(all_rs)) + 1 if all_rs else 0
-    r_min = min(r_max - 20, min(all_rs)) if all_rs else -20
+    r_min = math.floor(min(r_max - 10, min(all_rs)) - 1) if all_rs else -10
+
+    # Add HPBW overlays first so they render below data points.
+    fig = go.Figure()
+    if hpbw_enabled and all_rs:
+        result = compute_hpbw(all_thetas, all_rs)
+        if result is not None:
+            for overlay in build_hpbw_traces(result, r_min):
+                fig.add_trace(overlay)
+
+    for trace in data_traces:
+        fig.add_trace(trace)
 
     tick_vals = list(range(0, 360, 15))
     tick_text = [
@@ -176,12 +186,6 @@ def _polar_figure(
         showlegend=True,
         legend=_LEGEND,
     )
-
-    if hpbw_enabled and all_rs:
-        result = compute_hpbw(all_thetas, all_rs)
-        if result is not None:
-            for overlay in build_hpbw_traces(result, r_min):
-                fig.add_trace(overlay)
 
     return fig
 
