@@ -73,7 +73,9 @@ def replay_csv(
 
     timestamp_field = CSV_COLUMNS["timestamp"]
     if timestamp_field not in fieldnames:
-        raise ValueError(f"Missing timestamp column '{timestamp_field}' in {input_path}")
+        raise ValueError(
+            f"Missing timestamp column '{timestamp_field}' in {input_path}"
+        )
 
     timestamps = [_parse_timestamp(row[timestamp_field]) for row in rows]
     first_ts = timestamps[0]

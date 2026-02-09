@@ -591,10 +591,7 @@ def _build_source_status(
     resolved_csv: Path | None,
 ) -> str:
     resolved_text = str(resolved_csv) if resolved_csv is not None else "N/A"
-    return (
-        f"Source: {source_mode} ({source_path})"
-        f" | Resolved CSV: {resolved_text}"
-    )
+    return f"Source: {source_mode} ({source_path}) | Resolved CSV: {resolved_text}"
 
 
 def _safe_latest_row(data: pd.DataFrame) -> dict:

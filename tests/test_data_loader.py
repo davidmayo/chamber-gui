@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import csv
 import os
 from pathlib import Path
 
@@ -171,6 +172,52 @@ def test_find_latest_csv_picks_most_recent(tmp_path: Path) -> None:
     os.utime(older, (1, 1))
     os.utime(newer, (2, 2))
     assert find_latest_csv(folder) == newer
+
+
+def test_load_csv_snapshot_parses_sample_lems_data() -> None:
+    snapshot = load_csv_snapshot(
+        csv_path=Path("sample_data") / "lems_data.csv",
+        previous_mtime=None,
+    )
+    assert snapshot.file_exists is True
+    assert snapshot.data.empty is False
+    assert snapshot.warning is None
+    assert snapshot.parse_errors_count == 0
+    assert set(CSV_COLUMNS.values()).issubset(set(snapshot.data.columns))
+    timestamp_series = snapshot.data[CSV_COLUMNS["timestamp"]]
+    assert timestamp_series.dt.tz is not None
+    assert str(timestamp_series.dt.tz) == "UTC"
+
+
+def test_run_data_csv_matches_lems_headers_and_is_loadable() -> None:
+    run_data_path = Path("sample_data") / "run_data.csv"
+    with run_data_path.open("r", newline="", encoding="utf-8") as handle:
+        reader = csv.reader(handle)
+        headers = next(reader)
+    assert headers == [
+        "point_index",
+        "timestamp",
+        "cut_id",
+        "center_frequency",
+        "center_amplitude",
+        "peak_frequency",
+        "peak_amplitude",
+        "commanded_azimuth",
+        "commanded_elevation",
+        "commanded_pan",
+        "commanded_tilt",
+        "actual_azimuth",
+        "actual_elevation",
+        "actual_pan",
+        "actual_tilt",
+        "trace_data",
+        "trace_lower_bound",
+        "trace_upper_bound",
+    ]
+    snapshot = load_csv_snapshot(csv_path=run_data_path, previous_mtime=None)
+    assert snapshot.file_exists is True
+    assert snapshot.data.empty is False
+    assert snapshot.warning is None
 
 
 def test_get_latest_snapshot_folder_mode_warns_on_empty_folder(tmp_path: Path) -> None:

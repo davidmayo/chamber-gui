@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import math
 
 import plotly.graph_objects as go
 

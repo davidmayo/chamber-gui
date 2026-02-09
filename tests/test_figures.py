@@ -166,6 +166,4 @@ def test_hpbw_enabled_does_not_affect_non_polar_figures(
     )
     assert len(figures_on.path_pan_tilt.data) == len(figures_off.path_pan_tilt.data)
     assert len(figures_on.power_time.data) == len(figures_off.power_time.data)
-    assert len(figures_on.az_el_peak_heat.data) == len(
-        figures_off.az_el_peak_heat.data
-    )
+    assert len(figures_on.az_el_peak_heat.data) == len(figures_off.az_el_peak_heat.data)
