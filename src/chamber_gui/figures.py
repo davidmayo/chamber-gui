@@ -137,7 +137,7 @@ def _polar_figure(
                 go.Scatterpolar(
                     theta=clean[theta_column],
                     r=clean[r_column],
-                    mode="markers",
+                    mode="lines+markers",
                     name=str(cut_id),
                     marker=marker,
                 )
@@ -148,7 +148,7 @@ def _polar_figure(
             go.Scatterpolar(
                 theta=clean[theta_column],
                 r=clean[r_column],
-                mode="markers",
+                mode="lines+markers",
                 name="data",
             )
         )
