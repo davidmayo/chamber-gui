@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
+import threading
 
 import pandas as pd
 import dash
@@ -15,7 +16,7 @@ from chamber_gui.data_loader import (
     get_latest_snapshot,
     infer_source_mode,
 )
-from chamber_gui.figures import build_dashboard_figures
+from chamber_gui.figures import build_cut_color_map, build_dashboard_figures
 from chamber_gui.models import (
     CSV_COLUMNS,
     CUT_MODES,
@@ -220,6 +221,8 @@ def create_app(csv_path: Path, poll_interval_ms: int = 1000) -> Dash:
         return response
 
     cache = SnapshotCache()
+    cut_color_map: dict[str, str] = {}
+    cut_color_lock = threading.Lock()
 
     @app.callback(
         Output("az-peak", "figure"),
@@ -285,8 +288,23 @@ def create_app(csv_path: Path, poll_interval_ms: int = 1000) -> Dash:
         if not snapshot.data_changed and ctx.triggered_id == "poll-interval":
             return (*(dash.no_update for _ in GRAPH_IDS), info_panel, status_line)
 
+        figure_data = snapshot.data.copy()
+        cut_ids = (
+            figure_data[CSV_COLUMNS["cut_id"]].tolist()
+            if CSV_COLUMNS["cut_id"] in figure_data.columns
+            else []
+        )
+        with cut_color_lock:
+            cut_color_map.update(
+                build_cut_color_map(cut_ids=cut_ids, existing_map=cut_color_map)
+            )
+            active_color_map = dict(cut_color_map)
+
         figures = build_dashboard_figures(
-            snapshot.data, cut_mode=cut_mode, hpbw_enabled=hpbw_enabled
+            figure_data,
+            cut_mode=cut_mode,
+            hpbw_enabled=hpbw_enabled,
+            color_map=active_color_map,
         )
         return (
             figures.az_peak,

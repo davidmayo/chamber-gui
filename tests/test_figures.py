@@ -10,6 +10,7 @@ from chamber_gui.figures import (
     _degree_axis,
     _empty_figure,
     _heatmap_figure,
+    build_cut_color_map,
     build_dashboard_figures,
 )
 from chamber_gui.models import CSV_COLUMNS, DashboardFigures
@@ -52,6 +53,31 @@ def test_cut_id_groups_create_multiple_traces(sample_rows_df: pd.DataFrame) -> N
     assert len(figures.az_peak.data) == 2
     assert len(figures.path_pan_tilt.data) == 2
     assert {trace.name for trace in figures.az_peak.data} == {"coarse-az", "fine-pan"}
+
+
+def test_build_cut_color_map_keeps_existing_colors_when_new_cut_appears() -> None:
+    initial = build_cut_color_map(["cut-A", "cut-B"])
+    updated = build_cut_color_map(
+        ["cut-A", "cut-Azimuth", "cut-B"],
+        existing_map=initial,
+    )
+    assert updated["cut-A"] == initial["cut-A"]
+    assert updated["cut-B"] == initial["cut-B"]
+    assert "cut-Azimuth" in updated
+
+
+def test_build_dashboard_figures_uses_provided_cut_color_map(
+    sample_rows_df: pd.DataFrame,
+) -> None:
+    custom_colors = {"coarse-az": "#111111", "fine-pan": "#222222"}
+    figures = build_dashboard_figures(
+        _parsed_dataframe(sample_rows_df),
+        color_map=custom_colors,
+    )
+    az_colors = {trace.name: trace.marker.color for trace in figures.az_peak.data}
+    path_colors = {trace.name: trace.line.color for trace in figures.path_pan_tilt.data}
+    assert az_colors == custom_colors
+    assert path_colors == custom_colors
 
 
 def test_time_series_uses_expected_series_names(sample_rows_df: pd.DataFrame) -> None:
