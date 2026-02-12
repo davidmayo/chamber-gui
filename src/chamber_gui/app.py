@@ -8,7 +8,7 @@ import threading
 
 import pandas as pd
 import dash
-from dash import Dash, Input, Output, State, clientside_callback, ctx, dcc, html
+from dash import MATCH, Dash, Input, Output, State, clientside_callback, ctx, dcc, html
 
 from chamber_gui.data_loader import (
     SnapshotCache,
@@ -192,6 +192,159 @@ def _build_modal_right_panel(current_mode: str, hpbw_enabled: bool) -> html.Div:
                 value=["enabled"] if hpbw_enabled else [],
                 className="cut-mode-radio",
                 labelClassName="cut-mode-option",
+            ),
+        ],
+    )
+
+
+def _cut_axis_labels(orientation: str) -> tuple[str, str, str, str]:
+    """Returns cut angle labels for the selected orientation."""
+    if orientation == "vertical":
+        return (
+            "Start Tilt Angle",
+            "End Tilt Angle",
+            "Step Tilt Angle",
+            "Fixed Pan Angle",
+        )
+    return (
+        "Start Pan Angle",
+        "End Pan Angle",
+        "Step Pan Angle",
+        "Fixed Tilt Angle",
+    )
+
+
+def _build_experiment_cut_card(index: int) -> html.Div:
+    """Builds one mockup cut card for the experiment designer modal."""
+    start_label, end_label, step_label, fixed_label = _cut_axis_labels("horizontal")
+    return html.Div(
+        className="experiment-cut-card",
+        draggable="true",
+        children=[
+            html.Div(
+                className="experiment-cut-card-header",
+                children=[
+                    html.Span("⠿", className="experiment-cut-drag-handle"),
+                    html.Label(
+                        className="experiment-cut-field",
+                        children=[
+                            html.Span("Cut ID", className="experiment-cut-label"),
+                            dcc.Input(
+                                type="text",
+                                className="experiment-cut-input",
+                                placeholder=f"cut-{index + 1}",
+                            ),
+                        ],
+                    ),
+                    html.Button(
+                        "Delete",
+                        type="button",
+                        className="experiment-cut-delete-btn",
+                    ),
+                ],
+            ),
+            html.Div(
+                className="experiment-cut-orientation",
+                children=[
+                    html.Span("Orientation", className="experiment-cut-label"),
+                    dcc.RadioItems(
+                        id={"type": "exp-cut-orientation", "index": index},
+                        options=[
+                            {"label": "Horizontal", "value": "horizontal"},
+                            {"label": "Vertical", "value": "vertical"},
+                        ],
+                        value="horizontal",
+                        className="experiment-cut-radio",
+                        labelClassName="experiment-cut-radio-option",
+                    ),
+                ],
+            ),
+            html.Div(
+                className="experiment-cut-fields-grid",
+                children=[
+                    html.Label(
+                        className="experiment-cut-field",
+                        children=[
+                            html.Span(
+                                start_label,
+                                id={"type": "exp-cut-start-label", "index": index},
+                                className="experiment-cut-label experiment-cut-angle-label",
+                            ),
+                            dcc.Input(type="number", className="experiment-cut-input"),
+                        ],
+                    ),
+                    html.Label(
+                        className="experiment-cut-field",
+                        children=[
+                            html.Span(
+                                end_label,
+                                id={"type": "exp-cut-end-label", "index": index},
+                                className="experiment-cut-label experiment-cut-angle-label",
+                            ),
+                            dcc.Input(type="number", className="experiment-cut-input"),
+                        ],
+                    ),
+                    html.Label(
+                        className="experiment-cut-field",
+                        children=[
+                            html.Span(
+                                step_label,
+                                id={"type": "exp-cut-step-label", "index": index},
+                                className="experiment-cut-label experiment-cut-angle-label",
+                            ),
+                            dcc.Input(type="number", className="experiment-cut-input"),
+                        ],
+                    ),
+                    html.Label(
+                        className="experiment-cut-field",
+                        children=[
+                            html.Span(
+                                fixed_label,
+                                id={"type": "exp-cut-fixed-label", "index": index},
+                                className="experiment-cut-label experiment-cut-angle-label",
+                            ),
+                            dcc.Input(type="number", className="experiment-cut-input"),
+                        ],
+                    ),
+                ],
+            ),
+        ],
+    )
+
+
+def _build_experiment_modal_body() -> html.Div:
+    """Builds the mockup body content for the experiment designer modal."""
+    return html.Div(
+        id="experiment-modal-body",
+        className="experiment-modal-body",
+        children=[
+            html.Div(
+                className="experiment-cuts-column",
+                children=[
+                    html.H4("Cuts", className="experiment-column-title"),
+                    html.Div(
+                        className="experiment-cut-list",
+                        children=[
+                            _build_experiment_cut_card(0),
+                            _build_experiment_cut_card(1),
+                        ],
+                    ),
+                    html.Button(
+                        "Add Cut",
+                        type="button",
+                        className="experiment-add-cut-btn",
+                    ),
+                ],
+            ),
+            html.Div(
+                className="experiment-parameters-column",
+                children=[
+                    html.H4("Parameters", className="experiment-column-title"),
+                    html.Div(
+                        className="experiment-parameters-placeholder",
+                        children="Experiment parameters mockup placeholder.",
+                    ),
+                ],
             ),
         ],
     )
@@ -408,6 +561,33 @@ def create_app(csv_path: Path, poll_interval_ms: int = 1000) -> Dash:
         return "modal-overlay hidden"
 
     @app.callback(
+        Output("experiment-modal-overlay", "className"),
+        Output("hamburger-dropdown", "className", allow_duplicate=True),
+        Input("open-experiment-btn", "n_clicks"),
+        prevent_initial_call=True,
+    )
+    def _open_experiment_modal(_):
+        return "experiment-modal-overlay", "hamburger-dropdown hidden"
+
+    @app.callback(
+        Output("experiment-modal-overlay", "className", allow_duplicate=True),
+        Input("close-experiment-btn", "n_clicks"),
+        prevent_initial_call=True,
+    )
+    def _close_experiment_modal(_):
+        return "experiment-modal-overlay hidden"
+
+    @app.callback(
+        Output({"type": "exp-cut-start-label", "index": MATCH}, "children"),
+        Output({"type": "exp-cut-end-label", "index": MATCH}, "children"),
+        Output({"type": "exp-cut-step-label", "index": MATCH}, "children"),
+        Output({"type": "exp-cut-fixed-label", "index": MATCH}, "children"),
+        Input({"type": "exp-cut-orientation", "index": MATCH}, "value"),
+    )
+    def _update_experiment_cut_labels(orientation):
+        return _cut_axis_labels(orientation)
+
+    @app.callback(
         Output("cut-mode", "data"),
         Input("cut-mode-radio", "value"),
         prevent_initial_call=True,
@@ -476,6 +656,11 @@ def _build_layout(poll_interval_ms: int, source_config: dict) -> html.Div:
                                 className="dropdown-item",
                             ),
                             html.Button(
+                                "Design Experiment",
+                                id="open-experiment-btn",
+                                className="dropdown-item",
+                            ),
+                            html.Button(
                                 "Source CSV",
                                 id="open-source-file-btn",
                                 className="dropdown-item",
@@ -508,6 +693,29 @@ def _build_layout(poll_interval_ms: int, source_config: dict) -> html.Div:
                                 ],
                             ),
                             html.Div(id="modal-body", className="modal-body"),
+                        ],
+                    ),
+                ],
+            ),
+            html.Div(
+                id="experiment-modal-overlay",
+                className="experiment-modal-overlay hidden",
+                children=[
+                    html.Div(
+                        className="experiment-modal-dialog",
+                        children=[
+                            html.Div(
+                                className="experiment-modal-header",
+                                children=[
+                                    html.H3("Design Experiment"),
+                                    html.Button(
+                                        "Done",
+                                        id="close-experiment-btn",
+                                        className="experiment-modal-close-btn",
+                                    ),
+                                ],
+                            ),
+                            _build_experiment_modal_body(),
                         ],
                     ),
                 ],

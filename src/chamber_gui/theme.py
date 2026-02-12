@@ -306,6 +306,212 @@ APP_INDEX_TEMPLATE = """
                 color: var(--muted);
                 cursor: pointer;
             }
+            /* ===== Experiment designer modal ===== */
+            .experiment-modal-overlay {
+                position: fixed;
+                inset: 0;
+                background: rgba(31, 41, 51, 0.45);
+                z-index: 2100;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 22px;
+            }
+            .experiment-modal-overlay.hidden {
+                display: none;
+            }
+            .experiment-modal-dialog {
+                width: min(1200px, 90vw);
+                height: min(900px, 85vh);
+                min-height: 540px;
+                background: var(--panel);
+                border: 1px solid var(--line);
+                border-radius: 16px;
+                box-shadow: 0 16px 48px rgba(39, 64, 90, 0.3);
+                overflow: hidden;
+                display: flex;
+                flex-direction: column;
+            }
+            .experiment-modal-header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 16px 20px;
+                border-bottom: 1px solid var(--line);
+            }
+            .experiment-modal-header h3 {
+                margin: 0;
+                color: var(--accent);
+            }
+            .experiment-modal-close-btn {
+                background: var(--accent);
+                color: white;
+                border: none;
+                border-radius: 7px;
+                padding: 7px 16px;
+                cursor: pointer;
+                font-size: 0.9rem;
+            }
+            .experiment-modal-body {
+                display: grid;
+                grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+                gap: 0;
+                min-height: 0;
+                flex: 1;
+            }
+            .experiment-cuts-column,
+            .experiment-parameters-column {
+                min-height: 0;
+                padding: 16px;
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+            }
+            .experiment-cuts-column {
+                border-right: 1px solid var(--line);
+            }
+            .experiment-column-title {
+                margin: 0;
+                color: var(--accent);
+                font-size: 1rem;
+            }
+            .experiment-cut-list {
+                min-height: 0;
+                flex: 1;
+                overflow-y: auto;
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+                padding-right: 4px;
+            }
+            .experiment-cut-card {
+                border: 1px solid var(--line);
+                border-radius: 10px;
+                background: rgba(255, 255, 255, 0.88);
+                box-shadow: 0 4px 12px rgba(39, 64, 90, 0.1);
+                padding: 12px;
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+            }
+            .experiment-cut-card-header {
+                display: flex;
+                align-items: end;
+                gap: 10px;
+            }
+            .experiment-cut-drag-handle {
+                color: var(--muted);
+                cursor: grab;
+                user-select: none;
+                font-size: 1.1rem;
+                line-height: 1;
+                margin-bottom: 8px;
+            }
+            .experiment-cut-drag-handle:active {
+                cursor: grabbing;
+            }
+            .experiment-cut-field {
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+                min-width: 0;
+            }
+            .experiment-cut-label {
+                font-size: 0.8rem;
+                color: var(--muted);
+                text-transform: uppercase;
+                letter-spacing: 0.03em;
+            }
+            .experiment-cut-input {
+                width: 100%;
+                border: 1px solid var(--line);
+                border-radius: 7px;
+                padding: 7px 8px;
+                font-size: 0.9rem;
+                background: rgba(255, 255, 255, 0.95);
+                color: var(--text);
+            }
+            .experiment-cut-delete-btn {
+                margin-left: auto;
+                border: 1px solid var(--line);
+                background: white;
+                color: var(--muted);
+                border-radius: 6px;
+                padding: 6px 10px;
+                font-size: 0.82rem;
+                cursor: pointer;
+                white-space: nowrap;
+            }
+            .experiment-cut-delete-btn:hover {
+                background: var(--bg0);
+            }
+            .experiment-cut-orientation {
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+            }
+            .experiment-cut-radio {
+                display: flex;
+                gap: 12px;
+                flex-wrap: wrap;
+            }
+            .experiment-cut-radio-option {
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
+                font-size: 0.9rem;
+                color: var(--text);
+            }
+            .experiment-cut-fields-grid {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 8px;
+            }
+            .experiment-add-cut-btn {
+                align-self: flex-start;
+                border: none;
+                background: var(--accent);
+                color: white;
+                border-radius: 8px;
+                padding: 8px 14px;
+                font-size: 0.9rem;
+                cursor: pointer;
+            }
+            .experiment-parameters-placeholder {
+                border: 1px dashed var(--line);
+                background: rgba(255, 255, 255, 0.8);
+                border-radius: 10px;
+                padding: 16px;
+                color: var(--muted);
+                min-height: 220px;
+            }
+            @media (max-width: 980px) {
+                .experiment-modal-dialog {
+                    width: 94vw;
+                    height: 88vh;
+                    min-height: 0;
+                }
+                .experiment-modal-body {
+                    grid-template-columns: minmax(0, 1fr);
+                    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+                }
+                .experiment-cuts-column {
+                    border-right: none;
+                    border-bottom: 1px solid var(--line);
+                }
+            }
+            @media (max-width: 720px) {
+                .experiment-cut-card-header {
+                    align-items: stretch;
+                    flex-wrap: wrap;
+                }
+                .experiment-cut-delete-btn {
+                    margin-left: 0;
+                }
+                .experiment-cut-fields-grid {
+                    grid-template-columns: minmax(0, 1fr);
+                }
+            }
             @media (max-width: 650px) {
                 .title {
                     font-size: 1.4rem;

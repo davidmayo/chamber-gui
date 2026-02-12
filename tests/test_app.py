@@ -9,10 +9,13 @@ import pandas as pd
 import pytest
 
 from chamber_gui.app import (
+    _build_experiment_cut_card,
+    _build_experiment_modal_body,
     _build_info_panel,
     _build_modal_groups,
     _build_modal_items,
     _build_source_status,
+    _cut_axis_labels,
     _default_config,
     _format_number,
     _format_timestamp,
@@ -31,6 +34,8 @@ def test_create_app_layout_contains_expected_ids() -> None:
         assert graph_id in layout_repr
     assert "poll-interval" in layout_repr
     assert "panel-info" in layout_repr
+    assert "open-experiment-btn" in layout_repr
+    assert "experiment-modal-overlay" in layout_repr
 
 
 def test_create_app_disables_update_title() -> None:
@@ -105,6 +110,52 @@ def test_build_modal_items_has_expected_shape() -> None:
     assert first["data-panel-id"] == PANEL_IDS[0]
     assert first["children"][0].className == "drag-handle"
     assert first["children"][2].className == "panel-label"
+
+
+def test_cut_axis_labels_returns_expected_pan_or_tilt_fields() -> None:
+    assert _cut_axis_labels("horizontal") == (
+        "Start Pan Angle",
+        "End Pan Angle",
+        "Step Pan Angle",
+        "Fixed Tilt Angle",
+    )
+    assert _cut_axis_labels("vertical") == (
+        "Start Tilt Angle",
+        "End Tilt Angle",
+        "Step Tilt Angle",
+        "Fixed Pan Angle",
+    )
+
+
+def test_build_experiment_cut_card_has_expected_shape() -> None:
+    card = _build_experiment_cut_card(index=1)
+    props = card.to_plotly_json()["props"]
+    assert props["className"] == "experiment-cut-card"
+    assert props["draggable"] == "true"
+    header = props["children"][0]
+    assert header.className == "experiment-cut-card-header"
+    assert header.children[0].className == "experiment-cut-drag-handle"
+    assert header.children[2].className == "experiment-cut-delete-btn"
+    orientation = props["children"][1]
+    assert orientation.children[1].to_plotly_json()["props"]["id"] == {
+        "type": "exp-cut-orientation",
+        "index": 1,
+    }
+    fields_grid = props["children"][2]
+    first_angle_label = fields_grid.children[0].children[0].children
+    assert first_angle_label == "Start Pan Angle"
+
+
+def test_build_experiment_modal_body_contains_cuts_and_parameters_sections() -> None:
+    body = _build_experiment_modal_body()
+    props = body.to_plotly_json()["props"]
+    assert props["id"] == "experiment-modal-body"
+    assert props["className"] == "experiment-modal-body"
+    cuts_column = props["children"][0]
+    params_column = props["children"][1]
+    assert cuts_column.children[0].children == "Cuts"
+    assert params_column.children[0].children == "Parameters"
+    assert cuts_column.children[2].className == "experiment-add-cut-btn"
 
 
 def test_graph_panel_has_expected_id_and_graph() -> None:

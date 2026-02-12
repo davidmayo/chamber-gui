@@ -24,6 +24,9 @@ def test_app_registers_expected_callback_names() -> None:
         "_select_source",
         "_open_modal",
         "_close_modal",
+        "_open_experiment_modal",
+        "_close_experiment_modal",
+        "_update_experiment_cut_labels",
         "_update_cut_mode",
         "_update_hpbw",
         "_apply_panel_styles",
@@ -55,6 +58,34 @@ def test_open_modal_callback_builds_modal_content(callback_lookup) -> None:
 def test_close_modal_callback_hides_overlay(callback_lookup) -> None:
     callback = callback_lookup("_close_modal")
     assert callback(1) == "modal-overlay hidden"
+
+
+def test_open_experiment_modal_callback(callback_lookup) -> None:
+    callback = callback_lookup("_open_experiment_modal")
+    overlay_class, dropdown_class = callback(1)
+    assert overlay_class == "experiment-modal-overlay"
+    assert dropdown_class == "hamburger-dropdown hidden"
+
+
+def test_close_experiment_modal_callback_hides_overlay(callback_lookup) -> None:
+    callback = callback_lookup("_close_experiment_modal")
+    assert callback(1) == "experiment-modal-overlay hidden"
+
+
+def test_update_experiment_cut_labels_callback(callback_lookup) -> None:
+    callback = callback_lookup("_update_experiment_cut_labels")
+    assert callback("horizontal") == (
+        "Start Pan Angle",
+        "End Pan Angle",
+        "Step Pan Angle",
+        "Fixed Tilt Angle",
+    )
+    assert callback("vertical") == (
+        "Start Tilt Angle",
+        "End Tilt Angle",
+        "Step Tilt Angle",
+        "Fixed Pan Angle",
+    )
 
 
 def test_apply_panel_styles_callback_respects_enabled_and_order(
