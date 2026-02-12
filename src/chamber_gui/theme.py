@@ -417,7 +417,7 @@ APP_INDEX_TEMPLATE = """
             }
             .experiment-cut-id-field {
                 flex: 1;
-                min-width: 220px;
+                min-width: 260px;
             }
             .experiment-cut-label {
                 font-size: 0.72rem;
@@ -436,8 +436,8 @@ APP_INDEX_TEMPLATE = """
                 color: var(--text);
             }
             .experiment-cut-id-input {
-                min-width: 220px;
-                max-width: 340px;
+                min-width: 260px;
+                max-width: 420px;
                 padding: 6px 8px;
                 font-size: 0.95rem;
             }
@@ -446,27 +446,28 @@ APP_INDEX_TEMPLATE = """
             }
             .experiment-cut-delete-btn {
                 margin-left: auto;
-                border: 1px solid var(--line);
-                background: white;
-                color: var(--muted);
-                border-radius: 6px;
-                padding: 4px 10px;
-                font-size: 0.78rem;
+                border: 1px solid #b63616;
+                background: #d24d20;
+                color: #ffffff;
+                border-radius: 999px;
+                width: 24px;
+                height: 24px;
+                padding: 0;
+                font-size: 0.72rem;
+                font-weight: 700;
                 cursor: pointer;
-                white-space: nowrap;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
             }
             .experiment-cut-delete-btn:hover {
-                background: var(--bg0);
-            }
-            .experiment-cut-orientation {
-                display: flex;
-                align-items: center;
-                gap: 8px;
+                background: #bc3d14;
             }
             .experiment-cut-radio {
                 display: flex;
-                gap: 10px;
-                flex-wrap: wrap;
+                flex-direction: column;
+                gap: 2px;
+                min-width: 108px;
             }
             .experiment-cut-radio-option {
                 display: inline-flex;
@@ -523,10 +524,6 @@ APP_INDEX_TEMPLATE = """
                 }
                 .experiment-cut-delete-btn {
                     margin-left: 0;
-                }
-                .experiment-cut-orientation {
-                    flex-direction: column;
-                    align-items: flex-start;
                 }
                 .experiment-cut-fields-grid {
                     grid-template-columns: minmax(0, 1fr);

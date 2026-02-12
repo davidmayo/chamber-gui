@@ -139,6 +139,12 @@ def test_e2e_open_experiment_modal_and_swap_cut_labels(
     WebDriverWait(dash_duo.driver, 5).until(
         lambda _driver: _cut_card_count(dash_duo) == 2
     )
+    delete_buttons = dash_duo.find_elements(".experiment-cut-delete-btn")
+    assert delete_buttons[0].text == "X"
+    dash_duo.driver.execute_script("arguments[0].click();", delete_buttons[0])
+    WebDriverWait(dash_duo.driver, 5).until(
+        lambda _driver: _cut_card_count(dash_duo) == 1
+    )
 
     dash_duo.driver.execute_script(
         """

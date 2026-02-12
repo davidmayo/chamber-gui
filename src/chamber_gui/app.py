@@ -8,7 +8,18 @@ import threading
 
 import pandas as pd
 import dash
-from dash import MATCH, Dash, Input, Output, State, clientside_callback, ctx, dcc, html
+from dash import (
+    ALL,
+    MATCH,
+    Dash,
+    Input,
+    Output,
+    State,
+    clientside_callback,
+    ctx,
+    dcc,
+    html,
+)
 
 from chamber_gui.data_loader import (
     SnapshotCache,
@@ -112,7 +123,7 @@ _PANEL_GROUPS = [
     ),
 ]
 
-_DEFAULT_EXPERIMENT_CUT_COUNT = 1
+_DEFAULT_EXPERIMENT_CUT_KEYS = [0]
 
 
 def _build_modal_groups(config: list[dict]) -> html.Div:
@@ -216,16 +227,35 @@ def _cut_axis_labels(orientation: str) -> tuple[str, str, str, str]:
     )
 
 
-def _normalize_cut_count(value: object) -> int:
-    """Normalizes cut count state to a valid positive integer."""
-    try:
-        count = int(value)
-    except (TypeError, ValueError):
-        return _DEFAULT_EXPERIMENT_CUT_COUNT
-    return max(_DEFAULT_EXPERIMENT_CUT_COUNT, count)
+def _normalize_cut_keys(value: object) -> list[int]:
+    """Normalizes cut keys state to a unique list of non-negative integers."""
+    if not isinstance(value, list):
+        return list(_DEFAULT_EXPERIMENT_CUT_KEYS)
+
+    unique_keys = []
+    seen = set()
+    for item in value:
+        try:
+            key = int(item)
+        except (TypeError, ValueError):
+            continue
+        if key < 0 or key in seen:
+            continue
+        unique_keys.append(key)
+        seen.add(key)
+    if not unique_keys:
+        return list(_DEFAULT_EXPERIMENT_CUT_KEYS)
+    return unique_keys
 
 
-def _build_experiment_cut_card(index: int) -> html.Div:
+def _next_cut_key(cut_keys: list[int]) -> int:
+    """Returns the next stable key for a newly-added cut."""
+    if not cut_keys:
+        return 0
+    return max(cut_keys) + 1
+
+
+def _build_experiment_cut_card(index: int, display_index: int) -> html.Div:
     """Builds one mockup cut card for the experiment designer modal."""
     start_label, end_label, step_label, fixed_label = _cut_axis_labels("horizontal")
     return html.Div(
@@ -243,21 +273,10 @@ def _build_experiment_cut_card(index: int) -> html.Div:
                             dcc.Input(
                                 type="text",
                                 className="experiment-cut-input experiment-cut-id-input",
-                                placeholder=f"cut-{index + 1}",
+                                placeholder=f"cut-{display_index + 1}",
                             ),
                         ],
                     ),
-                    html.Button(
-                        "Delete",
-                        type="button",
-                        className="experiment-cut-delete-btn",
-                    ),
-                ],
-            ),
-            html.Div(
-                className="experiment-cut-orientation",
-                children=[
-                    html.Span("Orientation", className="experiment-cut-label"),
                     dcc.RadioItems(
                         id={"type": "exp-cut-orientation", "index": index},
                         options=[
@@ -267,6 +286,13 @@ def _build_experiment_cut_card(index: int) -> html.Div:
                         value="horizontal",
                         className="experiment-cut-radio",
                         labelClassName="experiment-cut-radio-option",
+                    ),
+                    html.Button(
+                        "X",
+                        id={"type": "experiment-delete-cut-btn", "index": index},
+                        type="button",
+                        title="Delete Cut",
+                        className="experiment-cut-delete-btn",
                     ),
                 ],
             ),
@@ -340,10 +366,10 @@ def _build_experiment_cut_card(index: int) -> html.Div:
 
 
 def _build_experiment_modal_body(
-    cut_count: int = _DEFAULT_EXPERIMENT_CUT_COUNT,
+    cut_keys: list[int] | None = None,
 ) -> html.Div:
     """Builds the mockup body content for the experiment designer modal."""
-    normalized_cut_count = _normalize_cut_count(cut_count)
+    normalized_cut_keys = _normalize_cut_keys(cut_keys)
     return html.Div(
         id="experiment-modal-body",
         className="experiment-modal-body",
@@ -355,8 +381,11 @@ def _build_experiment_modal_body(
                     html.Div(
                         className="experiment-cut-list",
                         children=[
-                            _build_experiment_cut_card(index)
-                            for index in range(normalized_cut_count)
+                            _build_experiment_cut_card(
+                                index=cut_key,
+                                display_index=display_index,
+                            )
+                            for display_index, cut_key in enumerate(normalized_cut_keys)
                         ],
                     ),
                     html.Button(
@@ -601,26 +630,40 @@ def create_app(csv_path: Path, poll_interval_ms: int = 1000) -> Dash:
         return "experiment-modal-overlay", "hamburger-dropdown hidden"
 
     @app.callback(
-        Output("experiment-cut-count", "data"),
+        Output("experiment-cut-keys", "data"),
         Input("open-experiment-btn", "n_clicks"),
         Input("experiment-add-cut-btn", "n_clicks"),
-        State("experiment-cut-count", "data"),
+        Input({"type": "experiment-delete-cut-btn", "index": ALL}, "n_clicks"),
+        State("experiment-cut-keys", "data"),
         prevent_initial_call=True,
     )
-    def _set_experiment_cut_count(_open_clicks, _add_clicks, current_cut_count):
+    def _set_experiment_cut_keys(
+        _open_clicks,
+        _add_clicks,
+        _delete_clicks,
+        current_cut_keys,
+    ):
+        cut_keys = _normalize_cut_keys(current_cut_keys)
         if ctx.triggered_id == "open-experiment-btn":
-            return _DEFAULT_EXPERIMENT_CUT_COUNT
+            return list(_DEFAULT_EXPERIMENT_CUT_KEYS)
         if ctx.triggered_id == "experiment-add-cut-btn":
-            return _normalize_cut_count(current_cut_count) + 1
+            return [*cut_keys, _next_cut_key(cut_keys)]
+        if (
+            isinstance(ctx.triggered_id, dict)
+            and ctx.triggered_id.get("type") == "experiment-delete-cut-btn"
+        ):
+            cut_key_to_delete = ctx.triggered_id.get("index")
+            remaining_cut_keys = [key for key in cut_keys if key != cut_key_to_delete]
+            return remaining_cut_keys if remaining_cut_keys else cut_keys
         return dash.no_update
 
     @app.callback(
         Output("experiment-modal-body", "children"),
-        Input("experiment-cut-count", "data"),
+        Input("experiment-cut-keys", "data"),
     )
-    def _render_experiment_modal_body(cut_count_data):
+    def _render_experiment_modal_body(cut_keys_data):
         return _build_experiment_modal_body(
-            cut_count=_normalize_cut_count(cut_count_data)
+            cut_keys=_normalize_cut_keys(cut_keys_data)
         ).children
 
     @app.callback(
@@ -770,7 +813,7 @@ def _build_layout(poll_interval_ms: int, source_config: dict) -> html.Div:
                                 ],
                             ),
                             _build_experiment_modal_body(
-                                cut_count=_DEFAULT_EXPERIMENT_CUT_COUNT
+                                cut_keys=_DEFAULT_EXPERIMENT_CUT_KEYS
                             ),
                         ],
                     ),
@@ -806,9 +849,9 @@ def _build_layout(poll_interval_ms: int, source_config: dict) -> html.Div:
             dcc.Store(id="source-config", storage_type="memory", data=source_config),
             dcc.Store(id="hpbw-enabled", storage_type="local", data=False),
             dcc.Store(
-                id="experiment-cut-count",
+                id="experiment-cut-keys",
                 storage_type="memory",
-                data=_DEFAULT_EXPERIMENT_CUT_COUNT,
+                data=_DEFAULT_EXPERIMENT_CUT_KEYS,
             ),
             dcc.Interval(id="poll-interval", interval=poll_interval_ms, n_intervals=0),
         ],

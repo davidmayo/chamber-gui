@@ -20,7 +20,7 @@ from chamber_gui.app import (
     _format_number,
     _format_timestamp,
     _graph_panel,
-    _normalize_cut_count,
+    _normalize_cut_keys,
     _normalize_config,
     _safe_latest_row,
     create_app,
@@ -128,15 +128,14 @@ def test_cut_axis_labels_returns_expected_pan_or_tilt_fields() -> None:
     )
 
 
-def test_normalize_cut_count_enforces_positive_integer() -> None:
-    assert _normalize_cut_count(None) == 1
-    assert _normalize_cut_count("bad") == 1
-    assert _normalize_cut_count(0) == 1
-    assert _normalize_cut_count(3) == 3
+def test_normalize_cut_keys_returns_unique_integer_list() -> None:
+    assert _normalize_cut_keys(None) == [0]
+    assert _normalize_cut_keys([]) == [0]
+    assert _normalize_cut_keys([0, 1, 1, "2", -1, "bad"]) == [0, 1, 2]
 
 
 def test_build_experiment_cut_card_has_expected_shape() -> None:
-    card = _build_experiment_cut_card(index=1)
+    card = _build_experiment_cut_card(index=7, display_index=2)
     props = card.to_plotly_json()["props"]
     assert props["className"] == "experiment-cut-card"
     assert props["draggable"] == "true"
@@ -149,13 +148,21 @@ def test_build_experiment_cut_card_has_expected_shape() -> None:
         in header.children[1].children[1].to_plotly_json()["props"]["className"]
     )
     assert header.children[1].children[1].to_plotly_json()["props"]["type"] == "text"
-    assert header.children[2].className == "experiment-cut-delete-btn"
-    orientation = props["children"][1]
-    assert orientation.children[1].to_plotly_json()["props"]["id"] == {
+    assert (
+        header.children[1].children[1].to_plotly_json()["props"]["placeholder"]
+        == "cut-3"
+    )
+    radio = header.children[2].to_plotly_json()["props"]
+    assert radio["id"] == {
         "type": "exp-cut-orientation",
-        "index": 1,
+        "index": 7,
     }
-    fields_grid = props["children"][2]
+    assert radio["className"] == "experiment-cut-radio"
+    delete_button = header.children[3].to_plotly_json()["props"]
+    assert delete_button["className"] == "experiment-cut-delete-btn"
+    assert delete_button["children"] == "X"
+    assert delete_button["id"] == {"type": "experiment-delete-cut-btn", "index": 7}
+    fields_grid = props["children"][1]
     first_angle_label = fields_grid.children[0].children[0].children
     assert first_angle_label == "Start Pan Angle"
     assert (
@@ -178,7 +185,7 @@ def test_build_experiment_modal_body_contains_cuts_and_parameters_sections() -> 
 
 
 def test_build_experiment_modal_body_renders_requested_cut_count() -> None:
-    body = _build_experiment_modal_body(cut_count=3)
+    body = _build_experiment_modal_body(cut_keys=[0, 5, 8])
     cuts_column = body.to_plotly_json()["props"]["children"][0]
     assert len(cuts_column.children[1].children) == 3
 

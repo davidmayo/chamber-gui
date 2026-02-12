@@ -25,7 +25,7 @@ def test_app_registers_expected_callback_names() -> None:
         "_open_modal",
         "_close_modal",
         "_open_experiment_modal",
-        "_set_experiment_cut_count",
+        "_set_experiment_cut_keys",
         "_render_experiment_modal_body",
         "_close_experiment_modal",
         "_update_experiment_cut_labels",
@@ -74,23 +74,29 @@ def test_close_experiment_modal_callback_hides_overlay(callback_lookup) -> None:
     assert callback(1) == "experiment-modal-overlay hidden"
 
 
-def test_set_experiment_cut_count_callback(callback_lookup, monkeypatch) -> None:
-    callback = callback_lookup("_set_experiment_cut_count")
+def test_set_experiment_cut_keys_callback(callback_lookup, monkeypatch) -> None:
+    callback = callback_lookup("_set_experiment_cut_keys")
 
     class _Ctx:
         triggered_id = "open-experiment-btn"
 
     monkeypatch.setattr("chamber_gui.app.ctx", _Ctx())
-    assert callback(1, None, 5) == 1
+    assert callback(1, None, [], [8, 9]) == [0]
 
     _Ctx.triggered_id = "experiment-add-cut-btn"
-    assert callback(1, 1, 1) == 2
-    assert callback(1, 2, "3") == 4
+    assert callback(1, 1, [], [0]) == [0, 1]
+    assert callback(1, 2, [], [0, 4]) == [0, 4, 5]
+
+    _Ctx.triggered_id = {"type": "experiment-delete-cut-btn", "index": 4}
+    assert callback(1, 2, [1], [0, 4, 5]) == [0, 5]
+
+    _Ctx.triggered_id = {"type": "experiment-delete-cut-btn", "index": 0}
+    assert callback(1, 2, [1], [0]) == [0]
 
 
 def test_render_experiment_modal_body_callback(callback_lookup) -> None:
     callback = callback_lookup("_render_experiment_modal_body")
-    body_children = callback(3)
+    body_children = callback([0, 2, 9])
     cuts_column = body_children[0]
     assert cuts_column.className == "experiment-cuts-column"
     assert len(cuts_column.children[1].children) == 3
