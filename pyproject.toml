@@ -9,6 +9,7 @@ authors = [
 requires-python = ">=3.14"
 dependencies = [
     "dash>=4.0.0",
+    "lems-anechoic",
     "pandas>=3.0.0",
     "plotly>=6.5.2",
 ]
@@ -35,3 +36,6 @@ addopts = "--webdriver Firefox --headless"
 markers = [
     "e2e: browser end-to-end tests requiring Selenium WebDriver",
 ]
+
+[tool.uv.sources]
+lems-anechoic = { git = "https://github.com/msu-ssc/lems-anechoic", rev = "0.5.0" }
