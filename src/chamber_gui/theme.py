@@ -306,6 +306,385 @@ APP_INDEX_TEMPLATE = """
                 color: var(--muted);
                 cursor: pointer;
             }
+            /* ===== Experiment designer modal ===== */
+            .experiment-modal-overlay {
+                position: fixed;
+                inset: 0;
+                background: rgba(31, 41, 51, 0.45);
+                z-index: 2100;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 22px;
+            }
+            .experiment-modal-overlay.hidden {
+                display: none;
+            }
+            .experiment-modal-dialog {
+                width: min(1200px, 90vw);
+                height: min(900px, 85vh);
+                min-height: 540px;
+                background: var(--panel);
+                border: 1px solid var(--line);
+                border-radius: 16px;
+                box-shadow: 0 16px 48px rgba(39, 64, 90, 0.3);
+                overflow: hidden;
+                display: flex;
+                flex-direction: column;
+            }
+            .experiment-modal-header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 16px 20px;
+                border-bottom: 1px solid var(--line);
+            }
+            .experiment-modal-header h3 {
+                margin: 0;
+                color: var(--accent);
+            }
+            .experiment-modal-close-btn {
+                background: var(--accent);
+                color: white;
+                border: none;
+                border-radius: 7px;
+                padding: 7px 16px;
+                cursor: pointer;
+                font-size: 0.9rem;
+            }
+            .experiment-modal-body {
+                display: grid;
+                grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+                gap: 0;
+                min-height: 0;
+                flex: 1;
+            }
+            .experiment-cuts-column,
+            .experiment-parameters-column {
+                min-height: 0;
+                padding: 16px;
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+            }
+            .experiment-cuts-column {
+                border-right: 1px solid var(--line);
+            }
+            .experiment-column-title {
+                margin: 0;
+                color: var(--accent);
+                font-size: 1rem;
+            }
+            .experiment-cut-list {
+                min-height: 0;
+                flex: 1;
+                overflow-y: auto;
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                padding-right: 4px;
+            }
+            .experiment-cut-card {
+                border: 1px solid var(--line);
+                border-radius: 10px;
+                background: rgba(255, 255, 255, 0.88);
+                box-shadow: 0 4px 12px rgba(39, 64, 90, 0.1);
+                padding: 8px 10px;
+                display: flex;
+                flex-direction: column;
+                gap: 6px;
+            }
+            .experiment-cut-card.dragging {
+                opacity: 0.66;
+            }
+            .experiment-cut-card.drag-over {
+                border-color: var(--accent);
+                box-shadow: 0 0 0 2px rgba(211, 85, 36, 0.2);
+            }
+            .experiment-cut-card-header {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+            .experiment-cut-drag-handle {
+                color: var(--muted);
+                cursor: grab;
+                user-select: none;
+                font-size: 1rem;
+                line-height: 1;
+            }
+            .experiment-cut-drag-handle:active {
+                cursor: grabbing;
+            }
+            .experiment-cut-field {
+                display: flex;
+                flex-direction: column;
+                gap: 3px;
+                min-width: 0;
+            }
+            .experiment-cut-id-field {
+                flex: 1;
+                min-width: 260px;
+            }
+            .experiment-cut-label {
+                font-size: 0.72rem;
+                color: var(--muted);
+                text-transform: uppercase;
+                letter-spacing: 0.03em;
+                line-height: 1.15;
+            }
+            .experiment-cut-input {
+                width: 100%;
+                border: 1px solid var(--line);
+                border-radius: 7px;
+                padding: 4px 7px;
+                font-size: 0.88rem;
+                background: rgba(255, 255, 255, 0.95);
+                color: var(--text);
+            }
+            .experiment-cut-id-input {
+                min-width: 260px;
+                max-width: 420px;
+                padding: 6px 8px;
+                font-size: 0.95rem;
+            }
+            .experiment-cut-angle-input {
+                min-width: 0;
+            }
+            .experiment-cut-delete-btn {
+                margin-left: auto;
+                border: 1px solid #b63616;
+                background: #d24d20;
+                color: #ffffff;
+                border-radius: 999px;
+                width: 24px;
+                height: 24px;
+                padding: 0;
+                font-size: 0.72rem;
+                font-weight: 700;
+                cursor: pointer;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+            }
+            .experiment-cut-delete-btn:hover {
+                background: #bc3d14;
+            }
+            .experiment-cut-radio {
+                display: flex;
+                flex-direction: column;
+                gap: 2px;
+                min-width: 108px;
+            }
+            .experiment-cut-radio-option {
+                display: inline-flex;
+                align-items: center;
+                gap: 3px;
+                font-size: 0.84rem;
+                color: var(--text);
+            }
+            .experiment-cut-fields-grid {
+                display: grid;
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+                gap: 6px;
+            }
+            .experiment-add-cut-btn {
+                align-self: flex-start;
+                border: none;
+                background: var(--accent);
+                color: white;
+                border-radius: 8px;
+                padding: 7px 14px;
+                font-size: 0.88rem;
+                cursor: pointer;
+            }
+            .experiment-parameters-placeholder {
+                border: 1px dashed var(--line);
+                background: rgba(255, 255, 255, 0.8);
+                border-radius: 10px;
+                padding: 16px;
+                color: var(--muted);
+                min-height: 220px;
+            }
+            .experiment-parameters-scroll {
+                min-height: 0;
+                flex: 1;
+                overflow-y: auto;
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                padding-right: 2px;
+            }
+            .experiment-parameter-group {
+                border: 1px solid var(--line);
+                border-radius: 10px;
+                background: rgba(255, 255, 255, 0.8);
+                padding: 10px;
+                display: flex;
+                flex-direction: column;
+                gap: 7px;
+            }
+            .experiment-parameter-title {
+                margin: 0;
+                color: var(--accent);
+                font-size: 0.88rem;
+            }
+            .experiment-parameter-grid {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 7px;
+            }
+            .experiment-parameter-field {
+                display: flex;
+                flex-direction: column;
+                gap: 3px;
+                min-width: 0;
+            }
+            .experiment-parameter-help {
+                color: var(--muted);
+                font-size: 0.74rem;
+                line-height: 1.2;
+            }
+            .experiment-param-textarea {
+                width: 100%;
+                min-height: 52px;
+                border: 1px solid var(--line);
+                border-radius: 7px;
+                padding: 6px 8px;
+                font-size: 0.88rem;
+                background: rgba(255, 255, 255, 0.95);
+                color: var(--text);
+                font-family: inherit;
+                resize: vertical;
+            }
+            .experiment-param-radio-row {
+                display: flex;
+                gap: 8px;
+                flex-wrap: wrap;
+            }
+            .experiment-param-radio-wrap {
+                row-gap: 4px;
+            }
+            .experiment-param-radio-col {
+                display: flex;
+                flex-direction: column;
+                gap: 3px;
+            }
+            .experiment-param-dropdown {
+                font-size: 0.85rem;
+            }
+            .experiment-specan-details-btn {
+                align-self: flex-start;
+                border: 1px solid var(--line);
+                background: white;
+                color: var(--muted);
+                border-radius: 7px;
+                padding: 5px 11px;
+                font-size: 0.8rem;
+                cursor: pointer;
+            }
+            .experiment-specan-details-btn:hover {
+                background: var(--bg0);
+            }
+            .experiment-result-modal-overlay {
+                position: fixed;
+                inset: 0;
+                background: rgba(31, 41, 51, 0.45);
+                z-index: 2200;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 22px;
+            }
+            .experiment-result-modal-overlay.hidden {
+                display: none;
+            }
+            .experiment-result-modal-dialog {
+                width: min(860px, 92vw);
+                height: min(760px, 86vh);
+                background: var(--panel);
+                border: 1px solid var(--line);
+                border-radius: 14px;
+                box-shadow: 0 16px 48px rgba(39, 64, 90, 0.35);
+                overflow: hidden;
+                display: flex;
+                flex-direction: column;
+            }
+            .experiment-result-modal-header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 14px 18px;
+                border-bottom: 1px solid var(--line);
+            }
+            .experiment-result-modal-header h3 {
+                margin: 0;
+                color: var(--accent);
+            }
+            .experiment-result-modal-close-btn {
+                background: var(--accent);
+                color: white;
+                border: none;
+                border-radius: 7px;
+                padding: 6px 12px;
+                font-size: 0.86rem;
+                cursor: pointer;
+            }
+            .experiment-result-modal-json {
+                margin: 0;
+                padding: 14px 16px;
+                overflow: auto;
+                white-space: pre;
+                font-size: 0.82rem;
+                line-height: 1.4;
+                color: var(--text);
+                background: rgba(255, 255, 255, 0.95);
+                flex: 1;
+            }
+            @media (max-width: 980px) {
+                .experiment-modal-dialog {
+                    width: 94vw;
+                    height: 88vh;
+                    min-height: 0;
+                }
+                .experiment-result-modal-dialog {
+                    width: 95vw;
+                    height: 88vh;
+                }
+                .experiment-modal-body {
+                    grid-template-columns: minmax(0, 1fr);
+                    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+                }
+                .experiment-cuts-column {
+                    border-right: none;
+                    border-bottom: 1px solid var(--line);
+                }
+                .experiment-cut-fields-grid {
+                    grid-template-columns: repeat(2, minmax(0, 1fr));
+                }
+                .experiment-parameter-grid {
+                    grid-template-columns: minmax(0, 1fr);
+                }
+            }
+            @media (max-width: 720px) {
+                .experiment-cut-card-header {
+                    align-items: stretch;
+                    flex-wrap: wrap;
+                }
+                .experiment-cut-delete-btn {
+                    margin-left: 0;
+                }
+                .experiment-cut-fields-grid {
+                    grid-template-columns: minmax(0, 1fr);
+                }
+                .experiment-cut-id-field {
+                    min-width: 0;
+                }
+                .experiment-cut-id-input {
+                    min-width: 0;
+                    max-width: none;
+                }
+            }
             @media (max-width: 650px) {
                 .title {
                     font-size: 1.4rem;

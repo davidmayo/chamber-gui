@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+import dash
 import pandas as pd
 import plotly.graph_objects as go
 
@@ -24,6 +25,12 @@ def test_app_registers_expected_callback_names() -> None:
         "_select_source",
         "_open_modal",
         "_close_modal",
+        "_open_experiment_modal",
+        "_set_experiment_cut_keys",
+        "_render_experiment_modal_body",
+        "_finish_experiment_modal",
+        "_close_experiment_result_modal",
+        "_update_experiment_cut_labels",
         "_update_cut_mode",
         "_update_hpbw",
         "_apply_panel_styles",
@@ -55,6 +62,136 @@ def test_open_modal_callback_builds_modal_content(callback_lookup) -> None:
 def test_close_modal_callback_hides_overlay(callback_lookup) -> None:
     callback = callback_lookup("_close_modal")
     assert callback(1) == "modal-overlay hidden"
+
+
+def test_open_experiment_modal_callback(callback_lookup) -> None:
+    callback = callback_lookup("_open_experiment_modal")
+    overlay_class, dropdown_class = callback(1)
+    assert overlay_class == "experiment-modal-overlay"
+    assert dropdown_class == "hamburger-dropdown hidden"
+
+
+def test_set_experiment_cut_keys_callback(callback_lookup, monkeypatch) -> None:
+    callback = callback_lookup("_set_experiment_cut_keys")
+
+    class _Ctx:
+        triggered_id = "open-experiment-btn"
+
+    monkeypatch.setattr("chamber_gui.app.ctx", _Ctx())
+    assert callback(1, None, [], None, [8, 9]) == [0]
+
+    _Ctx.triggered_id = "experiment-add-cut-btn"
+    assert callback(1, 1, [], None, [0]) == [0, 1]
+    assert callback(1, 2, [], None, [0, 4]) == [0, 4, 5]
+
+    _Ctx.triggered_id = {"type": "experiment-delete-cut-btn", "index": 4}
+    assert callback(1, 2, [1], None, [0, 4, 5]) == [0, 5]
+
+    _Ctx.triggered_id = {"type": "experiment-delete-cut-btn", "index": 0}
+    assert callback(1, 2, [1], None, [0]) == [0]
+
+    _Ctx.triggered_id = "experiment-pending-cut-order"
+    assert callback(1, 2, [1], [5, 0], [0, 5]) == [5, 0]
+    assert callback(1, 2, [1], [5], [0, 5]) is dash.no_update
+
+
+def test_render_experiment_modal_body_callback(callback_lookup) -> None:
+    callback = callback_lookup("_render_experiment_modal_body")
+    body_children = callback([0, 2, 9])
+    cuts_column = body_children[0]
+    assert cuts_column.className == "experiment-cuts-column"
+    assert len(cuts_column.children[1].children) == 3
+
+
+def test_update_experiment_cut_labels_callback(callback_lookup) -> None:
+    callback = callback_lookup("_update_experiment_cut_labels")
+    assert callback("horizontal") == (
+        "Start Pan Angle",
+        "End Pan Angle",
+        "Step Pan Angle",
+        "Fixed Tilt Angle",
+    )
+    assert callback("vertical") == (
+        "Start Tilt Angle",
+        "End Tilt Angle",
+        "Step Tilt Angle",
+        "Fixed Pan Angle",
+    )
+
+
+def test_finish_experiment_modal_callback_success(callback_lookup) -> None:
+    callback = callback_lookup("_finish_experiment_modal")
+    (
+        experiment_overlay_class,
+        result_overlay_class,
+        json_output,
+    ) = callback(
+        1,
+        [0],
+        "exp",
+        "desc",
+        "10000000000",
+        "0",
+        "-10",
+        "0",
+        "0",
+        "1000000",
+        "1000000, 500000",
+        "vertical",
+        "DEBUG",
+        ["collect_center_frequency_data", "collect_peak_data"],
+        ["cut-1"],
+        ["horizontal"],
+        ["-180"],
+        ["180"],
+        ["5"],
+        ["0"],
+    )
+    assert experiment_overlay_class == "experiment-modal-overlay hidden"
+    assert result_overlay_class == "experiment-result-modal-overlay"
+    assert '"sig_gen_config"' in json_output
+    assert '"spec_an_config"' in json_output
+    assert '"cuts"' in json_output
+
+
+def test_finish_experiment_modal_callback_failure_keeps_modal_open(
+    callback_lookup,
+    monkeypatch,
+) -> None:
+    callback = callback_lookup("_finish_experiment_modal")
+
+    def _explode(**_kwargs):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr("chamber_gui.app._build_experiment_parameters_json", _explode)
+    outputs = callback(
+        1,
+        [0],
+        "exp",
+        "desc",
+        "10000000000",
+        "0",
+        "-10",
+        "0",
+        "0",
+        "1000000",
+        "1000000, 500000",
+        "vertical",
+        "DEBUG",
+        ["collect_center_frequency_data", "collect_peak_data"],
+        ["cut-1"],
+        ["horizontal"],
+        ["-180"],
+        ["180"],
+        ["5"],
+        ["0"],
+    )
+    assert outputs == (dash.no_update, dash.no_update, dash.no_update)
+
+
+def test_close_experiment_result_modal_callback_hides_overlay(callback_lookup) -> None:
+    callback = callback_lookup("_close_experiment_result_modal")
+    assert callback(1) == "experiment-result-modal-overlay hidden"
 
 
 def test_apply_panel_styles_callback_respects_enabled_and_order(

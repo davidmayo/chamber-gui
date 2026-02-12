@@ -3,12 +3,27 @@
 from __future__ import annotations
 
 from datetime import datetime
+import functools
 from pathlib import Path
+import sys
 import threading
+import traceback
+import types
 
 import pandas as pd
 import dash
-from dash import Dash, Input, Output, State, clientside_callback, ctx, dcc, html
+from dash import (
+    ALL,
+    MATCH,
+    Dash,
+    Input,
+    Output,
+    State,
+    clientside_callback,
+    ctx,
+    dcc,
+    html,
+)
 
 from chamber_gui.data_loader import (
     SnapshotCache,
@@ -112,6 +127,8 @@ _PANEL_GROUPS = [
     ),
 ]
 
+_DEFAULT_EXPERIMENT_CUT_KEYS = [0]
+
 
 def _build_modal_groups(config: list[dict]) -> html.Div:
     enabled_ids = {item["id"] for item in config if item["enabled"]}
@@ -192,6 +209,774 @@ def _build_modal_right_panel(current_mode: str, hpbw_enabled: bool) -> html.Div:
                 value=["enabled"] if hpbw_enabled else [],
                 className="cut-mode-radio",
                 labelClassName="cut-mode-option",
+            ),
+        ],
+    )
+
+
+def _cut_axis_labels(orientation: str) -> tuple[str, str, str, str]:
+    """Returns cut angle labels for the selected orientation."""
+    if orientation == "vertical":
+        return (
+            "Start Tilt Angle",
+            "End Tilt Angle",
+            "Step Tilt Angle",
+            "Fixed Pan Angle",
+        )
+    return (
+        "Start Pan Angle",
+        "End Pan Angle",
+        "Step Pan Angle",
+        "Fixed Tilt Angle",
+    )
+
+
+def _normalize_cut_keys(value: object) -> list[int]:
+    """Normalizes cut keys state to a unique list of non-negative integers."""
+    if not isinstance(value, list):
+        return list(_DEFAULT_EXPERIMENT_CUT_KEYS)
+
+    unique_keys = []
+    seen = set()
+    for item in value:
+        try:
+            key = int(item)
+        except (TypeError, ValueError):
+            continue
+        if key < 0 or key in seen:
+            continue
+        unique_keys.append(key)
+        seen.add(key)
+    if not unique_keys:
+        return list(_DEFAULT_EXPERIMENT_CUT_KEYS)
+    return unique_keys
+
+
+def _next_cut_key(cut_keys: list[int]) -> int:
+    """Returns the next stable key for a newly-added cut."""
+    if not cut_keys:
+        return 0
+    return max(cut_keys) + 1
+
+
+def _coerce_optional_float(value: object, *, field_name: str) -> float | None:
+    """Parses an optional float field from text-like input."""
+    if value is None:
+        return None
+    if isinstance(value, str):
+        value = value.strip()
+        if not value:
+            return None
+    try:
+        return float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"Invalid value for {field_name}: {value!r}") from exc
+
+
+def _coerce_required_float(value: object, *, field_name: str) -> float:
+    """Parses a required float field from text-like input."""
+    parsed = _coerce_optional_float(value, field_name=field_name)
+    if parsed is None:
+        raise ValueError(f"Missing required value for {field_name}")
+    return parsed
+
+
+def _parse_search_spans(value: object) -> list[float] | None:
+    """Parses comma-separated spectrum analyzer search spans."""
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+
+    spans = []
+    for raw_item in text.split(","):
+        item = raw_item.strip()
+        if not item:
+            continue
+        spans.append(_coerce_required_float(item, field_name="search span"))
+    return spans or None
+
+
+def _normalize_text(value: object, *, default: str) -> str:
+    """Normalizes text input by trimming and falling back to a default."""
+    if value is None:
+        return default
+    text = str(value).strip()
+    return text or default
+
+
+def _value_at(values: object, index: int) -> object:
+    """Returns a list item at index, or None when unavailable."""
+    if not isinstance(values, list) or index < 0 or index >= len(values):
+        return None
+    return values[index]
+
+
+def _build_cuts_payload(
+    *,
+    cut_keys: list[int],
+    cut_ids: object,
+    orientations: object,
+    starts: object,
+    ends: object,
+    steps: object,
+    fixeds: object,
+) -> dict[str, dict[str, object]]:
+    """Builds the ExperimentParameters `cuts` payload."""
+    if not cut_keys:
+        raise ValueError("At least one cut is required.")
+
+    cuts: dict[str, dict[str, object]] = {}
+    for display_index, _cut_key in enumerate(cut_keys):
+        raw_cut_id = _value_at(cut_ids, display_index)
+        cut_id = (
+            str(raw_cut_id).strip()
+            if raw_cut_id is not None and str(raw_cut_id).strip()
+            else f"cut-{display_index + 1}"
+        )
+        if cut_id in cuts:
+            raise ValueError(f"Duplicate Cut ID: {cut_id!r}")
+
+        orientation = _value_at(orientations, display_index)
+        if orientation not in {"horizontal", "vertical"}:
+            orientation = "horizontal"
+
+        cuts[cut_id] = {
+            "direction": orientation,
+            "start_angle": _coerce_required_float(
+                _value_at(starts, display_index),
+                field_name=f"{cut_id} start angle",
+            ),
+            "end_angle": _coerce_required_float(
+                _value_at(ends, display_index),
+                field_name=f"{cut_id} end angle",
+            ),
+            "step_size": _coerce_required_float(
+                _value_at(steps, display_index),
+                field_name=f"{cut_id} step angle",
+            ),
+            "fixed_angle": _coerce_required_float(
+                _value_at(fixeds, display_index),
+                field_name=f"{cut_id} fixed angle",
+            ),
+        }
+    return cuts
+
+
+def _build_experiment_parameters_payload(
+    *,
+    cut_keys: object,
+    short_description: object,
+    long_description: object,
+    center_frequency: object,
+    neutral_elevation: object,
+    sig_gen_power: object,
+    sig_gen_vernier_power: object,
+    spec_an_reference_level: object,
+    spec_an_span: object,
+    spec_an_search_spans: object,
+    polarization: object,
+    log_level: object,
+    data_collection: object,
+    cut_ids: object,
+    orientations: object,
+    starts: object,
+    ends: object,
+    steps: object,
+    fixeds: object,
+) -> dict[str, object]:
+    """Builds a complete ExperimentParameters payload from form values."""
+    normalized_cut_keys = _normalize_cut_keys(cut_keys)
+    center_frequency_value = _coerce_required_float(
+        center_frequency,
+        field_name="center frequency",
+    )
+    collection_values = (
+        set(data_collection) if isinstance(data_collection, list) else set()
+    )
+    log_level_value = str(log_level).strip() if log_level is not None else "DEBUG"
+    if log_level_value not in {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}:
+        log_level_value = "DEBUG"
+    polarization_value = (
+        str(polarization).strip() if polarization is not None else "vertical"
+    )
+    if polarization_value not in {"vertical", "horizontal"}:
+        polarization_value = "vertical"
+
+    return {
+        "short_description": _normalize_text(
+            short_description,
+            default="default",
+        ),
+        "long_description": _normalize_text(
+            long_description,
+            default="default",
+        ),
+        "cuts": _build_cuts_payload(
+            cut_keys=normalized_cut_keys,
+            cut_ids=cut_ids,
+            orientations=orientations,
+            starts=starts,
+            ends=ends,
+            steps=steps,
+            fixeds=fixeds,
+        ),
+        "sig_gen_config": {
+            "center_frequency": center_frequency_value,
+            "power": _coerce_required_float(
+                sig_gen_power,
+                field_name="signal generator power",
+            ),
+            "vernier_power": _coerce_required_float(
+                sig_gen_vernier_power,
+                field_name="signal generator vernier power",
+            ),
+        },
+        "spec_an_config": {
+            "initial_center_frequency": center_frequency_value,
+            "reference_level": _coerce_optional_float(
+                spec_an_reference_level,
+                field_name="spectrum analyzer reference level",
+            ),
+            "span": _coerce_optional_float(
+                spec_an_span,
+                field_name="spectrum analyzer span",
+            ),
+            "spans_when_searching": _parse_search_spans(spec_an_search_spans),
+        },
+        "polarization_config": {"kind": polarization_value},
+        "log_level": log_level_value,
+        "neutral_elevation": _coerce_optional_float(
+            neutral_elevation,
+            field_name="neutral elevation",
+        ),
+        "collect_center_frequency_data": "collect_center_frequency_data"
+        in collection_values,
+        "collect_peak_data": "collect_peak_data" in collection_values,
+        "collect_trace_data": "collect_trace_data" in collection_values,
+    }
+
+
+@functools.lru_cache(maxsize=1)
+def _get_experiment_parameters_class():
+    """Loads ExperimentParameters while stubbing Windows-only sound on non-Windows."""
+    if sys.platform != "win32" and "msu_anechoic.sound" not in sys.modules:
+        sound_stub = types.ModuleType("msu_anechoic.sound")
+        sound_stub.say = lambda *_args, **_kwargs: None
+        sys.modules["msu_anechoic.sound"] = sound_stub
+
+    from msu_anechoic.experiment import ExperimentParameters
+
+    return ExperimentParameters
+
+
+def _build_experiment_parameters_json(
+    **kwargs,
+) -> str:
+    """Builds and serializes ExperimentParameters from form kwargs."""
+    payload = _build_experiment_parameters_payload(**kwargs)
+    experiment_parameters_cls = _get_experiment_parameters_class()
+    experiment_parameters = experiment_parameters_cls(**payload)
+    return experiment_parameters.model_dump_json(indent=4)
+
+
+def _build_experiment_cut_card(index: int, display_index: int) -> html.Div:
+    """Builds one mockup cut card for the experiment designer modal."""
+    start_label, end_label, step_label, fixed_label = _cut_axis_labels("horizontal")
+    return html.Div(
+        **{"data-cut-key": str(index)},
+        className="experiment-cut-card",
+        draggable="false",
+        children=[
+            html.Div(
+                className="experiment-cut-card-header",
+                children=[
+                    html.Span("⠿", className="experiment-cut-drag-handle"),
+                    html.Label(
+                        className="experiment-cut-field experiment-cut-id-field",
+                        children=[
+                            html.Span("Cut ID", className="experiment-cut-label"),
+                            dcc.Input(
+                                id={"type": "exp-cut-id-input", "index": index},
+                                type="text",
+                                className="experiment-cut-input experiment-cut-id-input",
+                                placeholder=f"cut-{display_index + 1}",
+                                value=f"cut-{display_index + 1}",
+                                persistence=True,
+                                persistence_type="memory",
+                            ),
+                        ],
+                    ),
+                    dcc.RadioItems(
+                        id={"type": "exp-cut-orientation", "index": index},
+                        options=[
+                            {"label": "Horizontal", "value": "horizontal"},
+                            {"label": "Vertical", "value": "vertical"},
+                        ],
+                        value="horizontal",
+                        className="experiment-cut-radio",
+                        labelClassName="experiment-cut-radio-option",
+                        persistence=True,
+                        persistence_type="memory",
+                    ),
+                    html.Button(
+                        "X",
+                        id={"type": "experiment-delete-cut-btn", "index": index},
+                        type="button",
+                        title="Delete Cut",
+                        className="experiment-cut-delete-btn",
+                    ),
+                ],
+            ),
+            html.Div(
+                className="experiment-cut-fields-grid",
+                children=[
+                    html.Label(
+                        className="experiment-cut-field",
+                        children=[
+                            html.Span(
+                                start_label,
+                                id={"type": "exp-cut-start-label", "index": index},
+                                className="experiment-cut-label experiment-cut-angle-label",
+                            ),
+                            dcc.Input(
+                                id={"type": "exp-cut-start-input", "index": index},
+                                type="text",
+                                inputMode="decimal",
+                                className="experiment-cut-input experiment-cut-angle-input",
+                                value="-180",
+                                persistence=True,
+                                persistence_type="memory",
+                            ),
+                        ],
+                    ),
+                    html.Label(
+                        className="experiment-cut-field",
+                        children=[
+                            html.Span(
+                                end_label,
+                                id={"type": "exp-cut-end-label", "index": index},
+                                className="experiment-cut-label experiment-cut-angle-label",
+                            ),
+                            dcc.Input(
+                                id={"type": "exp-cut-end-input", "index": index},
+                                type="text",
+                                inputMode="decimal",
+                                className="experiment-cut-input experiment-cut-angle-input",
+                                value="180",
+                                persistence=True,
+                                persistence_type="memory",
+                            ),
+                        ],
+                    ),
+                    html.Label(
+                        className="experiment-cut-field",
+                        children=[
+                            html.Span(
+                                step_label,
+                                id={"type": "exp-cut-step-label", "index": index},
+                                className="experiment-cut-label experiment-cut-angle-label",
+                            ),
+                            dcc.Input(
+                                id={"type": "exp-cut-step-input", "index": index},
+                                type="text",
+                                inputMode="decimal",
+                                className="experiment-cut-input experiment-cut-angle-input",
+                                value="5",
+                                persistence=True,
+                                persistence_type="memory",
+                            ),
+                        ],
+                    ),
+                    html.Label(
+                        className="experiment-cut-field",
+                        children=[
+                            html.Span(
+                                fixed_label,
+                                id={"type": "exp-cut-fixed-label", "index": index},
+                                className="experiment-cut-label experiment-cut-angle-label",
+                            ),
+                            dcc.Input(
+                                id={"type": "exp-cut-fixed-input", "index": index},
+                                type="text",
+                                inputMode="decimal",
+                                className="experiment-cut-input experiment-cut-angle-input",
+                                value="0",
+                                persistence=True,
+                                persistence_type="memory",
+                            ),
+                        ],
+                    ),
+                ],
+            ),
+        ],
+    )
+
+
+def _build_experiment_modal_body(
+    cut_keys: list[int] | None = None,
+) -> html.Div:
+    """Builds the mockup body content for the experiment designer modal."""
+    normalized_cut_keys = _normalize_cut_keys(cut_keys)
+    return html.Div(
+        id="experiment-modal-body",
+        className="experiment-modal-body",
+        children=[
+            html.Div(
+                className="experiment-cuts-column",
+                children=[
+                    html.H4("Cuts", className="experiment-column-title"),
+                    html.Div(
+                        className="experiment-cut-list",
+                        children=[
+                            _build_experiment_cut_card(
+                                index=cut_key,
+                                display_index=display_index,
+                            )
+                            for display_index, cut_key in enumerate(normalized_cut_keys)
+                        ],
+                    ),
+                    html.Button(
+                        "Add Cut",
+                        id="experiment-add-cut-btn",
+                        type="button",
+                        className="experiment-add-cut-btn",
+                    ),
+                ],
+            ),
+            html.Div(
+                className="experiment-parameters-column",
+                children=[
+                    html.H4("Parameters", className="experiment-column-title"),
+                    html.Div(
+                        className="experiment-parameters-scroll",
+                        children=[
+                            html.Div(
+                                className="experiment-parameter-group",
+                                children=[
+                                    html.H5(
+                                        "Experiment",
+                                        className="experiment-parameter-title",
+                                    ),
+                                    html.Label(
+                                        className="experiment-parameter-field",
+                                        children=[
+                                            html.Span(
+                                                "Short Description",
+                                                className="experiment-cut-label",
+                                            ),
+                                            dcc.Input(
+                                                id="exp-short-description",
+                                                type="text",
+                                                className="experiment-cut-input",
+                                                value="default",
+                                                persistence=True,
+                                                persistence_type="memory",
+                                            ),
+                                        ],
+                                    ),
+                                    html.Label(
+                                        className="experiment-parameter-field",
+                                        children=[
+                                            html.Span(
+                                                "Long Description",
+                                                className="experiment-cut-label",
+                                            ),
+                                            dcc.Textarea(
+                                                id="exp-long-description",
+                                                className="experiment-param-textarea",
+                                                value="default",
+                                                persistence=True,
+                                                persistence_type="memory",
+                                            ),
+                                        ],
+                                    ),
+                                    html.Div(
+                                        className="experiment-parameter-grid",
+                                        children=[
+                                            html.Label(
+                                                className="experiment-parameter-field",
+                                                children=[
+                                                    html.Span(
+                                                        "Center Freq (Hz)",
+                                                        className="experiment-cut-label",
+                                                    ),
+                                                    dcc.Input(
+                                                        id="exp-center-frequency",
+                                                        type="text",
+                                                        inputMode="decimal",
+                                                        className="experiment-cut-input",
+                                                        value="10000000000",
+                                                        persistence=True,
+                                                        persistence_type="memory",
+                                                    ),
+                                                ],
+                                            ),
+                                            html.Label(
+                                                className="experiment-parameter-field",
+                                                children=[
+                                                    html.Span(
+                                                        "Neutral Elevation",
+                                                        className="experiment-cut-label",
+                                                    ),
+                                                    dcc.Input(
+                                                        id="exp-neutral-elevation",
+                                                        type="text",
+                                                        inputMode="decimal",
+                                                        className="experiment-cut-input",
+                                                        value="0",
+                                                        persistence=True,
+                                                        persistence_type="memory",
+                                                    ),
+                                                ],
+                                            ),
+                                        ],
+                                    ),
+                                ],
+                            ),
+                            html.Div(
+                                className="experiment-parameter-group",
+                                children=[
+                                    html.H5(
+                                        "Signal Generator",
+                                        className="experiment-parameter-title",
+                                    ),
+                                    html.Div(
+                                        className="experiment-parameter-grid",
+                                        children=[
+                                            html.Label(
+                                                className="experiment-parameter-field",
+                                                children=[
+                                                    html.Span(
+                                                        "Sig Gen Power",
+                                                        className="experiment-cut-label",
+                                                    ),
+                                                    dcc.Input(
+                                                        id="exp-siggen-power",
+                                                        type="text",
+                                                        inputMode="decimal",
+                                                        className="experiment-cut-input",
+                                                        value="-10",
+                                                        persistence=True,
+                                                        persistence_type="memory",
+                                                    ),
+                                                ],
+                                            ),
+                                            html.Label(
+                                                className="experiment-parameter-field",
+                                                children=[
+                                                    html.Span(
+                                                        "Sig Gen Vernier Power",
+                                                        className="experiment-cut-label",
+                                                    ),
+                                                    dcc.Input(
+                                                        id="exp-siggen-vernier-power",
+                                                        type="text",
+                                                        inputMode="decimal",
+                                                        className="experiment-cut-input",
+                                                        value="0",
+                                                        persistence=True,
+                                                        persistence_type="memory",
+                                                    ),
+                                                ],
+                                            ),
+                                        ],
+                                    ),
+                                ],
+                            ),
+                            html.Div(
+                                className="experiment-parameter-group",
+                                children=[
+                                    html.H5(
+                                        "Spectrum Analyzer",
+                                        className="experiment-parameter-title",
+                                    ),
+                                    html.Div(
+                                        className="experiment-parameter-grid",
+                                        children=[
+                                            html.Label(
+                                                className="experiment-parameter-field",
+                                                children=[
+                                                    html.Span(
+                                                        "Reference Level",
+                                                        className="experiment-cut-label",
+                                                    ),
+                                                    dcc.Input(
+                                                        id="exp-specan-reference-level",
+                                                        type="text",
+                                                        inputMode="decimal",
+                                                        className="experiment-cut-input",
+                                                        value="0",
+                                                        persistence=True,
+                                                        persistence_type="memory",
+                                                    ),
+                                                ],
+                                            ),
+                                            html.Label(
+                                                className="experiment-parameter-field",
+                                                children=[
+                                                    html.Span(
+                                                        "Span",
+                                                        className="experiment-cut-label",
+                                                    ),
+                                                    dcc.Input(
+                                                        id="exp-specan-span",
+                                                        type="text",
+                                                        inputMode="decimal",
+                                                        className="experiment-cut-input",
+                                                        value="1000000",
+                                                        persistence=True,
+                                                        persistence_type="memory",
+                                                    ),
+                                                ],
+                                            ),
+                                        ],
+                                    ),
+                                    html.Label(
+                                        className="experiment-parameter-field",
+                                        children=[
+                                            html.Span(
+                                                "Search Spans",
+                                                className="experiment-cut-label",
+                                            ),
+                                            dcc.Input(
+                                                id="exp-specan-search-spans",
+                                                type="text",
+                                                className="experiment-cut-input",
+                                                placeholder="e.g. 1e6, 5e5, 1e5",
+                                                value="1000000, 500000, 100000",
+                                                persistence=True,
+                                                persistence_type="memory",
+                                            ),
+                                        ],
+                                    ),
+                                    html.Button(
+                                        "Details",
+                                        type="button",
+                                        className="experiment-specan-details-btn",
+                                    ),
+                                ],
+                            ),
+                            html.Div(
+                                className="experiment-parameter-group",
+                                children=[
+                                    html.H5(
+                                        "Run Options",
+                                        className="experiment-parameter-title",
+                                    ),
+                                    html.Div(
+                                        className="experiment-parameter-grid",
+                                        children=[
+                                            html.Div(
+                                                className="experiment-parameter-field",
+                                                children=[
+                                                    html.Span(
+                                                        "Polarization",
+                                                        className="experiment-cut-label",
+                                                    ),
+                                                    dcc.Dropdown(
+                                                        id="exp-polarization",
+                                                        options=[
+                                                            {
+                                                                "label": "Vertical",
+                                                                "value": "vertical",
+                                                            },
+                                                            {
+                                                                "label": "Horizontal",
+                                                                "value": "horizontal",
+                                                            },
+                                                        ],
+                                                        value="vertical",
+                                                        clearable=False,
+                                                        searchable=False,
+                                                        className="experiment-param-dropdown",
+                                                        persistence=True,
+                                                        persistence_type="memory",
+                                                    ),
+                                                ],
+                                            ),
+                                            html.Div(
+                                                className="experiment-parameter-field",
+                                                children=[
+                                                    html.Span(
+                                                        "Log Level",
+                                                        className="experiment-cut-label",
+                                                    ),
+                                                    dcc.Dropdown(
+                                                        id="exp-log-level",
+                                                        options=[
+                                                            {
+                                                                "label": "DEBUG",
+                                                                "value": "DEBUG",
+                                                            },
+                                                            {
+                                                                "label": "INFO",
+                                                                "value": "INFO",
+                                                            },
+                                                            {
+                                                                "label": "WARNING",
+                                                                "value": "WARNING",
+                                                            },
+                                                            {
+                                                                "label": "ERROR",
+                                                                "value": "ERROR",
+                                                            },
+                                                            {
+                                                                "label": "CRITICAL",
+                                                                "value": "CRITICAL",
+                                                            },
+                                                        ],
+                                                        value="DEBUG",
+                                                        clearable=False,
+                                                        searchable=False,
+                                                        className="experiment-param-dropdown",
+                                                        persistence=True,
+                                                        persistence_type="memory",
+                                                    ),
+                                                ],
+                                            ),
+                                        ],
+                                    ),
+                                    html.Div(
+                                        className="experiment-parameter-field",
+                                        children=[
+                                            html.Span(
+                                                "Data Collection",
+                                                className="experiment-cut-label",
+                                            ),
+                                            dcc.Checklist(
+                                                id="exp-data-collection",
+                                                options=[
+                                                    {
+                                                        "label": "Collect Center Frequency Data",
+                                                        "value": "collect_center_frequency_data",
+                                                    },
+                                                    {
+                                                        "label": "Collect Peak Data",
+                                                        "value": "collect_peak_data",
+                                                    },
+                                                    {
+                                                        "label": "Collect Trace Data",
+                                                        "value": "collect_trace_data",
+                                                    },
+                                                ],
+                                                value=[
+                                                    "collect_center_frequency_data",
+                                                    "collect_peak_data",
+                                                ],
+                                                className="experiment-param-radio-col",
+                                                labelClassName="experiment-cut-radio-option",
+                                                persistence=True,
+                                                persistence_type="memory",
+                                            ),
+                                        ],
+                                    ),
+                                ],
+                            ),
+                        ],
+                    ),
+                ],
             ),
         ],
     )
@@ -408,6 +1193,159 @@ def create_app(csv_path: Path, poll_interval_ms: int = 1000) -> Dash:
         return "modal-overlay hidden"
 
     @app.callback(
+        Output("experiment-modal-overlay", "className"),
+        Output("hamburger-dropdown", "className", allow_duplicate=True),
+        Input("open-experiment-btn", "n_clicks"),
+        prevent_initial_call=True,
+    )
+    def _open_experiment_modal(_):
+        return "experiment-modal-overlay", "hamburger-dropdown hidden"
+
+    @app.callback(
+        Output("experiment-cut-keys", "data"),
+        Input("open-experiment-btn", "n_clicks"),
+        Input("experiment-add-cut-btn", "n_clicks"),
+        Input({"type": "experiment-delete-cut-btn", "index": ALL}, "n_clicks"),
+        Input("experiment-pending-cut-order", "data"),
+        State("experiment-cut-keys", "data"),
+        prevent_initial_call=True,
+    )
+    def _set_experiment_cut_keys(
+        _open_clicks,
+        _add_clicks,
+        _delete_clicks,
+        pending_cut_order,
+        current_cut_keys,
+    ):
+        cut_keys = _normalize_cut_keys(current_cut_keys)
+        if ctx.triggered_id == "open-experiment-btn":
+            return list(_DEFAULT_EXPERIMENT_CUT_KEYS)
+        if ctx.triggered_id == "experiment-add-cut-btn":
+            return [*cut_keys, _next_cut_key(cut_keys)]
+        if (
+            isinstance(ctx.triggered_id, dict)
+            and ctx.triggered_id.get("type") == "experiment-delete-cut-btn"
+        ):
+            cut_key_to_delete = ctx.triggered_id.get("index")
+            remaining_cut_keys = [key for key in cut_keys if key != cut_key_to_delete]
+            return remaining_cut_keys if remaining_cut_keys else cut_keys
+        if ctx.triggered_id == "experiment-pending-cut-order":
+            if not isinstance(pending_cut_order, list):
+                return dash.no_update
+            normalized_pending = _normalize_cut_keys(pending_cut_order)
+            if len(normalized_pending) == len(cut_keys) and set(
+                normalized_pending
+            ) == set(cut_keys):
+                return normalized_pending
+        return dash.no_update
+
+    @app.callback(
+        Output("experiment-modal-body", "children"),
+        Input("experiment-cut-keys", "data"),
+    )
+    def _render_experiment_modal_body(cut_keys_data):
+        return _build_experiment_modal_body(
+            cut_keys=_normalize_cut_keys(cut_keys_data)
+        ).children
+
+    @app.callback(
+        Output("experiment-modal-overlay", "className", allow_duplicate=True),
+        Output("experiment-result-modal-overlay", "className"),
+        Output("experiment-result-modal-json", "children"),
+        Input("close-experiment-btn", "n_clicks"),
+        State("experiment-cut-keys", "data"),
+        State("exp-short-description", "value"),
+        State("exp-long-description", "value"),
+        State("exp-center-frequency", "value"),
+        State("exp-neutral-elevation", "value"),
+        State("exp-siggen-power", "value"),
+        State("exp-siggen-vernier-power", "value"),
+        State("exp-specan-reference-level", "value"),
+        State("exp-specan-span", "value"),
+        State("exp-specan-search-spans", "value"),
+        State("exp-polarization", "value"),
+        State("exp-log-level", "value"),
+        State("exp-data-collection", "value"),
+        State({"type": "exp-cut-id-input", "index": ALL}, "value"),
+        State({"type": "exp-cut-orientation", "index": ALL}, "value"),
+        State({"type": "exp-cut-start-input", "index": ALL}, "value"),
+        State({"type": "exp-cut-end-input", "index": ALL}, "value"),
+        State({"type": "exp-cut-step-input", "index": ALL}, "value"),
+        State({"type": "exp-cut-fixed-input", "index": ALL}, "value"),
+        prevent_initial_call=True,
+    )
+    def _finish_experiment_modal(
+        _done_clicks,
+        cut_keys_data,
+        short_description,
+        long_description,
+        center_frequency,
+        neutral_elevation,
+        sig_gen_power,
+        sig_gen_vernier_power,
+        spec_an_reference_level,
+        spec_an_span,
+        spec_an_search_spans,
+        polarization,
+        log_level,
+        data_collection,
+        cut_ids,
+        orientations,
+        starts,
+        ends,
+        steps,
+        fixeds,
+    ):
+        try:
+            model_json = _build_experiment_parameters_json(
+                cut_keys=cut_keys_data,
+                short_description=short_description,
+                long_description=long_description,
+                center_frequency=center_frequency,
+                neutral_elevation=neutral_elevation,
+                sig_gen_power=sig_gen_power,
+                sig_gen_vernier_power=sig_gen_vernier_power,
+                spec_an_reference_level=spec_an_reference_level,
+                spec_an_span=spec_an_span,
+                spec_an_search_spans=spec_an_search_spans,
+                polarization=polarization,
+                log_level=log_level,
+                data_collection=data_collection,
+                cut_ids=cut_ids,
+                orientations=orientations,
+                starts=starts,
+                ends=ends,
+                steps=steps,
+                fixeds=fixeds,
+            )
+        except Exception:  # pylint: disable=broad-except
+            traceback.print_exc()
+            return dash.no_update, dash.no_update, dash.no_update
+        return (
+            "experiment-modal-overlay hidden",
+            "experiment-result-modal-overlay",
+            model_json,
+        )
+
+    @app.callback(
+        Output("experiment-result-modal-overlay", "className", allow_duplicate=True),
+        Input("close-experiment-result-btn", "n_clicks"),
+        prevent_initial_call=True,
+    )
+    def _close_experiment_result_modal(_):
+        return "experiment-result-modal-overlay hidden"
+
+    @app.callback(
+        Output({"type": "exp-cut-start-label", "index": MATCH}, "children"),
+        Output({"type": "exp-cut-end-label", "index": MATCH}, "children"),
+        Output({"type": "exp-cut-step-label", "index": MATCH}, "children"),
+        Output({"type": "exp-cut-fixed-label", "index": MATCH}, "children"),
+        Input({"type": "exp-cut-orientation", "index": MATCH}, "value"),
+    )
+    def _update_experiment_cut_labels(orientation):
+        return _cut_axis_labels(orientation)
+
+    @app.callback(
         Output("cut-mode", "data"),
         Input("cut-mode-radio", "value"),
         prevent_initial_call=True,
@@ -435,6 +1373,21 @@ def create_app(csv_path: Path, poll_interval_ms: int = 1000) -> Dash:
         """,
         Output("graph-config", "data"),
         Input("config-sync-btn", "n_clicks"),
+        prevent_initial_call=True,
+    )
+
+    clientside_callback(
+        """
+        function(n_clicks) {
+            if (!n_clicks) return window.dash_clientside.no_update;
+            var order = window._pendingExperimentCutKeys;
+            if (!order) return window.dash_clientside.no_update;
+            window._pendingExperimentCutKeys = null;
+            return order;
+        }
+        """,
+        Output("experiment-pending-cut-order", "data"),
+        Input("experiment-cut-sync-btn", "n_clicks"),
         prevent_initial_call=True,
     )
 
@@ -476,6 +1429,11 @@ def _build_layout(poll_interval_ms: int, source_config: dict) -> html.Div:
                                 className="dropdown-item",
                             ),
                             html.Button(
+                                "Design Experiment",
+                                id="open-experiment-btn",
+                                className="dropdown-item",
+                            ),
+                            html.Button(
                                 "Source CSV",
                                 id="open-source-file-btn",
                                 className="dropdown-item",
@@ -512,6 +1470,57 @@ def _build_layout(poll_interval_ms: int, source_config: dict) -> html.Div:
                     ),
                 ],
             ),
+            html.Div(
+                id="experiment-modal-overlay",
+                className="experiment-modal-overlay hidden",
+                children=[
+                    html.Div(
+                        className="experiment-modal-dialog",
+                        children=[
+                            html.Div(
+                                className="experiment-modal-header",
+                                children=[
+                                    html.H3("Design Experiment"),
+                                    html.Button(
+                                        "Done",
+                                        id="close-experiment-btn",
+                                        className="experiment-modal-close-btn",
+                                    ),
+                                ],
+                            ),
+                            _build_experiment_modal_body(
+                                cut_keys=_DEFAULT_EXPERIMENT_CUT_KEYS
+                            ),
+                        ],
+                    ),
+                ],
+            ),
+            html.Div(
+                id="experiment-result-modal-overlay",
+                className="experiment-result-modal-overlay hidden",
+                children=[
+                    html.Div(
+                        className="experiment-result-modal-dialog",
+                        children=[
+                            html.Div(
+                                className="experiment-result-modal-header",
+                                children=[
+                                    html.H3("Experiment Parameters JSON"),
+                                    html.Button(
+                                        "Close",
+                                        id="close-experiment-result-btn",
+                                        className="experiment-result-modal-close-btn",
+                                    ),
+                                ],
+                            ),
+                            html.Pre(
+                                id="experiment-result-modal-json",
+                                className="experiment-result-modal-json",
+                            ),
+                        ],
+                    ),
+                ],
+            ),
             html.H1("Chamber Monitoring", className="title"),
             html.Div(id="source-status", className="status-line"),
             html.Div(
@@ -537,10 +1546,21 @@ def _build_layout(poll_interval_ms: int, source_config: dict) -> html.Div:
                 ],
             ),
             html.Button(id="config-sync-btn", style={"display": "none"}, n_clicks=0),
+            html.Button(
+                id="experiment-cut-sync-btn",
+                style={"display": "none"},
+                n_clicks=0,
+            ),
             dcc.Store(id="graph-config", storage_type="memory", data=_default_config()),
             dcc.Store(id="cut-mode", storage_type="local", data=DEFAULT_CUT_MODE),
             dcc.Store(id="source-config", storage_type="memory", data=source_config),
             dcc.Store(id="hpbw-enabled", storage_type="local", data=False),
+            dcc.Store(
+                id="experiment-cut-keys",
+                storage_type="memory",
+                data=_DEFAULT_EXPERIMENT_CUT_KEYS,
+            ),
+            dcc.Store(id="experiment-pending-cut-order", storage_type="memory"),
             dcc.Interval(id="poll-interval", interval=poll_interval_ms, n_intervals=0),
         ],
     )
