@@ -173,6 +173,7 @@ def test_build_experiment_cut_card_has_expected_shape() -> None:
 def test_build_experiment_modal_body_contains_cuts_and_parameters_sections() -> None:
     body = _build_experiment_modal_body()
     props = body.to_plotly_json()["props"]
+    body_repr = str(body)
     assert props["id"] == "experiment-modal-body"
     assert props["className"] == "experiment-modal-body"
     cuts_column = props["children"][0]
@@ -182,6 +183,11 @@ def test_build_experiment_modal_body_contains_cuts_and_parameters_sections() -> 
     assert cuts_column.children[2].className == "experiment-add-cut-btn"
     assert cuts_column.children[2].id == "experiment-add-cut-btn"
     assert len(cuts_column.children[1].children) == 1
+    assert "Center Freq (Hz)" in body_repr
+    assert "Reference Level" in body_repr
+    assert "Search Spans" in body_repr
+    assert "Details" in body_repr
+    assert "Collect Trace Data" in body_repr
 
 
 def test_build_experiment_modal_body_renders_requested_cut_count() -> None:

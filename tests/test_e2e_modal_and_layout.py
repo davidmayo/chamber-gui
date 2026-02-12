@@ -60,6 +60,10 @@ def _cut_card_count(dash_duo) -> int:
     return len(dash_duo.find_elements(".experiment-cut-card"))
 
 
+def _parameters_text(dash_duo) -> str:
+    return dash_duo.find_element(".experiment-parameters-column").text
+
+
 def test_e2e_layout_renders_expected_panels(dash_duo, sample_csv_path: Path) -> None:
     _start_app(dash_duo, sample_csv_path)
     assert dash_duo.find_element("#hamburger-btn").is_displayed()
@@ -126,6 +130,10 @@ def test_e2e_open_experiment_modal_and_swap_cut_labels(
     _open_experiment_modal(dash_duo)
     assert dash_duo.find_element(".experiment-cuts-column").is_displayed()
     assert dash_duo.find_element(".experiment-parameters-column").is_displayed()
+    params_text = _parameters_text(dash_duo).upper()
+    assert "CENTER FREQ" in params_text
+    assert "REFERENCE LEVEL" in params_text
+    assert dash_duo.find_element(".experiment-specan-details-btn").text == "Details"
     assert _cut_card_count(dash_duo) == 1
     assert _first_cut_angle_labels(dash_duo) == [
         "Start Pan Angle",

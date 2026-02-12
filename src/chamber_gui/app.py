@@ -401,8 +401,305 @@ def _build_experiment_modal_body(
                 children=[
                     html.H4("Parameters", className="experiment-column-title"),
                     html.Div(
-                        className="experiment-parameters-placeholder",
-                        children="Experiment parameters mockup placeholder.",
+                        className="experiment-parameters-scroll",
+                        children=[
+                            html.Div(
+                                className="experiment-parameter-group",
+                                children=[
+                                    html.H5(
+                                        "Experiment",
+                                        className="experiment-parameter-title",
+                                    ),
+                                    html.Label(
+                                        className="experiment-parameter-field",
+                                        children=[
+                                            html.Span(
+                                                "Short Description",
+                                                className="experiment-cut-label",
+                                            ),
+                                            dcc.Input(
+                                                type="text",
+                                                className="experiment-cut-input",
+                                                value="default",
+                                            ),
+                                        ],
+                                    ),
+                                    html.Label(
+                                        className="experiment-parameter-field",
+                                        children=[
+                                            html.Span(
+                                                "Long Description",
+                                                className="experiment-cut-label",
+                                            ),
+                                            dcc.Textarea(
+                                                className="experiment-param-textarea",
+                                                value="default",
+                                            ),
+                                        ],
+                                    ),
+                                    html.Div(
+                                        className="experiment-parameter-grid",
+                                        children=[
+                                            html.Label(
+                                                className="experiment-parameter-field",
+                                                children=[
+                                                    html.Span(
+                                                        "Relative Folder Path",
+                                                        className="experiment-cut-label",
+                                                    ),
+                                                    dcc.Input(
+                                                        type="text",
+                                                        className="experiment-cut-input",
+                                                        placeholder="./experiments/default",
+                                                    ),
+                                                ],
+                                            ),
+                                            html.Label(
+                                                className="experiment-parameter-field",
+                                                children=[
+                                                    html.Span(
+                                                        "Neutral Elevation",
+                                                        className="experiment-cut-label",
+                                                    ),
+                                                    dcc.Input(
+                                                        type="text",
+                                                        inputMode="decimal",
+                                                        className="experiment-cut-input",
+                                                    ),
+                                                ],
+                                            ),
+                                        ],
+                                    ),
+                                ],
+                            ),
+                            html.Div(
+                                className="experiment-parameter-group",
+                                children=[
+                                    html.H5(
+                                        "Signal Generator",
+                                        className="experiment-parameter-title",
+                                    ),
+                                    html.Label(
+                                        className="experiment-parameter-field",
+                                        children=[
+                                            html.Span(
+                                                "Center Freq (Hz)",
+                                                className="experiment-cut-label",
+                                            ),
+                                            dcc.Input(
+                                                type="text",
+                                                inputMode="decimal",
+                                                className="experiment-cut-input",
+                                            ),
+                                            html.Small(
+                                                "Applies to SpecAnConfig.initial_center_frequency "
+                                                "and SigGenConfig.center_frequency.",
+                                                className="experiment-parameter-help",
+                                            ),
+                                        ],
+                                    ),
+                                    html.Div(
+                                        className="experiment-parameter-grid",
+                                        children=[
+                                            html.Label(
+                                                className="experiment-parameter-field",
+                                                children=[
+                                                    html.Span(
+                                                        "Sig Gen Power",
+                                                        className="experiment-cut-label",
+                                                    ),
+                                                    dcc.Input(
+                                                        type="text",
+                                                        inputMode="decimal",
+                                                        className="experiment-cut-input",
+                                                    ),
+                                                ],
+                                            ),
+                                            html.Label(
+                                                className="experiment-parameter-field",
+                                                children=[
+                                                    html.Span(
+                                                        "Sig Gen Vernier Power",
+                                                        className="experiment-cut-label",
+                                                    ),
+                                                    dcc.Input(
+                                                        type="text",
+                                                        inputMode="decimal",
+                                                        className="experiment-cut-input",
+                                                    ),
+                                                ],
+                                            ),
+                                        ],
+                                    ),
+                                ],
+                            ),
+                            html.Div(
+                                className="experiment-parameter-group",
+                                children=[
+                                    html.H5(
+                                        "Spectrum Analyzer",
+                                        className="experiment-parameter-title",
+                                    ),
+                                    html.Div(
+                                        className="experiment-parameter-grid",
+                                        children=[
+                                            html.Label(
+                                                className="experiment-parameter-field",
+                                                children=[
+                                                    html.Span(
+                                                        "Reference Level",
+                                                        className="experiment-cut-label",
+                                                    ),
+                                                    dcc.Input(
+                                                        type="text",
+                                                        inputMode="decimal",
+                                                        className="experiment-cut-input",
+                                                    ),
+                                                ],
+                                            ),
+                                            html.Label(
+                                                className="experiment-parameter-field",
+                                                children=[
+                                                    html.Span(
+                                                        "Span",
+                                                        className="experiment-cut-label",
+                                                    ),
+                                                    dcc.Input(
+                                                        type="text",
+                                                        inputMode="decimal",
+                                                        className="experiment-cut-input",
+                                                    ),
+                                                ],
+                                            ),
+                                        ],
+                                    ),
+                                    html.Label(
+                                        className="experiment-parameter-field",
+                                        children=[
+                                            html.Span(
+                                                "Search Spans",
+                                                className="experiment-cut-label",
+                                            ),
+                                            dcc.Input(
+                                                type="text",
+                                                className="experiment-cut-input",
+                                                placeholder="e.g. 1e6, 5e5, 1e5",
+                                            ),
+                                        ],
+                                    ),
+                                    html.Button(
+                                        "Details",
+                                        type="button",
+                                        className="experiment-specan-details-btn",
+                                    ),
+                                ],
+                            ),
+                            html.Div(
+                                className="experiment-parameter-group",
+                                children=[
+                                    html.H5(
+                                        "Run Options",
+                                        className="experiment-parameter-title",
+                                    ),
+                                    html.Div(
+                                        className="experiment-parameter-grid",
+                                        children=[
+                                            html.Div(
+                                                className="experiment-parameter-field",
+                                                children=[
+                                                    html.Span(
+                                                        "Polarization",
+                                                        className="experiment-cut-label",
+                                                    ),
+                                                    dcc.RadioItems(
+                                                        options=[
+                                                            {
+                                                                "label": "Vertical",
+                                                                "value": "vertical",
+                                                            },
+                                                            {
+                                                                "label": "Horizontal",
+                                                                "value": "horizontal",
+                                                            },
+                                                        ],
+                                                        value="vertical",
+                                                        className="experiment-param-radio-row",
+                                                        labelClassName="experiment-cut-radio-option",
+                                                    ),
+                                                ],
+                                            ),
+                                            html.Div(
+                                                className="experiment-parameter-field",
+                                                children=[
+                                                    html.Span(
+                                                        "Log Level",
+                                                        className="experiment-cut-label",
+                                                    ),
+                                                    dcc.RadioItems(
+                                                        options=[
+                                                            {
+                                                                "label": "DEBUG",
+                                                                "value": "DEBUG",
+                                                            },
+                                                            {
+                                                                "label": "INFO",
+                                                                "value": "INFO",
+                                                            },
+                                                            {
+                                                                "label": "WARNING",
+                                                                "value": "WARNING",
+                                                            },
+                                                            {
+                                                                "label": "ERROR",
+                                                                "value": "ERROR",
+                                                            },
+                                                            {
+                                                                "label": "CRITICAL",
+                                                                "value": "CRITICAL",
+                                                            },
+                                                        ],
+                                                        value="DEBUG",
+                                                        className="experiment-param-radio-row experiment-param-radio-wrap",
+                                                        labelClassName="experiment-cut-radio-option",
+                                                    ),
+                                                ],
+                                            ),
+                                        ],
+                                    ),
+                                    html.Div(
+                                        className="experiment-parameter-field",
+                                        children=[
+                                            html.Span(
+                                                "Data Collection",
+                                                className="experiment-cut-label",
+                                            ),
+                                            dcc.Checklist(
+                                                options=[
+                                                    {
+                                                        "label": "Collect Center Frequency Data",
+                                                        "value": "collect_center_frequency_data",
+                                                    },
+                                                    {
+                                                        "label": "Collect Peak Data",
+                                                        "value": "collect_peak_data",
+                                                    },
+                                                    {
+                                                        "label": "Collect Trace Data",
+                                                        "value": "collect_trace_data",
+                                                    },
+                                                ],
+                                                value=[
+                                                    "collect_center_frequency_data",
+                                                    "collect_peak_data",
+                                                ],
+                                                className="experiment-param-radio-col",
+                                                labelClassName="experiment-cut-radio-option",
+                                            ),
+                                        ],
+                                    ),
+                                ],
+                            ),
+                        ],
                     ),
                 ],
             ),

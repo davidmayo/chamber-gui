@@ -499,6 +499,83 @@ APP_INDEX_TEMPLATE = """
                 color: var(--muted);
                 min-height: 220px;
             }
+            .experiment-parameters-scroll {
+                min-height: 0;
+                flex: 1;
+                overflow-y: auto;
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                padding-right: 2px;
+            }
+            .experiment-parameter-group {
+                border: 1px solid var(--line);
+                border-radius: 10px;
+                background: rgba(255, 255, 255, 0.8);
+                padding: 10px;
+                display: flex;
+                flex-direction: column;
+                gap: 7px;
+            }
+            .experiment-parameter-title {
+                margin: 0;
+                color: var(--accent);
+                font-size: 0.88rem;
+            }
+            .experiment-parameter-grid {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 7px;
+            }
+            .experiment-parameter-field {
+                display: flex;
+                flex-direction: column;
+                gap: 3px;
+                min-width: 0;
+            }
+            .experiment-parameter-help {
+                color: var(--muted);
+                font-size: 0.74rem;
+                line-height: 1.2;
+            }
+            .experiment-param-textarea {
+                width: 100%;
+                min-height: 52px;
+                border: 1px solid var(--line);
+                border-radius: 7px;
+                padding: 6px 8px;
+                font-size: 0.88rem;
+                background: rgba(255, 255, 255, 0.95);
+                color: var(--text);
+                font-family: inherit;
+                resize: vertical;
+            }
+            .experiment-param-radio-row {
+                display: flex;
+                gap: 8px;
+                flex-wrap: wrap;
+            }
+            .experiment-param-radio-wrap {
+                row-gap: 4px;
+            }
+            .experiment-param-radio-col {
+                display: flex;
+                flex-direction: column;
+                gap: 3px;
+            }
+            .experiment-specan-details-btn {
+                align-self: flex-start;
+                border: 1px solid var(--line);
+                background: white;
+                color: var(--muted);
+                border-radius: 7px;
+                padding: 5px 11px;
+                font-size: 0.8rem;
+                cursor: pointer;
+            }
+            .experiment-specan-details-btn:hover {
+                background: var(--bg0);
+            }
             @media (max-width: 980px) {
                 .experiment-modal-dialog {
                     width: 94vw;
@@ -515,6 +592,9 @@ APP_INDEX_TEMPLATE = """
                 }
                 .experiment-cut-fields-grid {
                     grid-template-columns: repeat(2, minmax(0, 1fr));
+                }
+                .experiment-parameter-grid {
+                    grid-template-columns: minmax(0, 1fr);
                 }
             }
             @media (max-width: 720px) {
