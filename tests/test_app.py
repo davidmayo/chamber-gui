@@ -188,6 +188,19 @@ def test_build_experiment_modal_body_contains_cuts_and_parameters_sections() -> 
     assert "Search Spans" in body_repr
     assert "Details" in body_repr
     assert "Collect Trace Data" in body_repr
+    assert "Relative Folder Path" not in body_repr
+
+
+def test_run_options_use_dropdowns_for_polarization_and_log_level() -> None:
+    body = _build_experiment_modal_body()
+    params_column = body.to_plotly_json()["props"]["children"][1]
+    params_scroll = params_column.children[1]
+    run_options_group = params_scroll.children[3]
+    run_grid = run_options_group.children[1]
+    polarization_control = run_grid.children[0].children[1]
+    log_level_control = run_grid.children[1].children[1]
+    assert polarization_control.to_plotly_json()["type"] == "Dropdown"
+    assert log_level_control.to_plotly_json()["type"] == "Dropdown"
 
 
 def test_build_experiment_modal_body_renders_requested_cut_count() -> None:

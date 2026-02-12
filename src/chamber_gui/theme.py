@@ -563,6 +563,9 @@ APP_INDEX_TEMPLATE = """
                 flex-direction: column;
                 gap: 3px;
             }
+            .experiment-param-dropdown {
+                font-size: 0.85rem;
+            }
             .experiment-specan-details-btn {
                 align-self: flex-start;
                 border: 1px solid var(--line);

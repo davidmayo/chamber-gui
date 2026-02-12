@@ -444,13 +444,13 @@ def _build_experiment_modal_body(
                                                 className="experiment-parameter-field",
                                                 children=[
                                                     html.Span(
-                                                        "Relative Folder Path",
+                                                        "Center Freq (Hz)",
                                                         className="experiment-cut-label",
                                                     ),
                                                     dcc.Input(
                                                         type="text",
+                                                        inputMode="decimal",
                                                         className="experiment-cut-input",
-                                                        placeholder="./experiments/default",
                                                     ),
                                                 ],
                                             ),
@@ -478,25 +478,6 @@ def _build_experiment_modal_body(
                                     html.H5(
                                         "Signal Generator",
                                         className="experiment-parameter-title",
-                                    ),
-                                    html.Label(
-                                        className="experiment-parameter-field",
-                                        children=[
-                                            html.Span(
-                                                "Center Freq (Hz)",
-                                                className="experiment-cut-label",
-                                            ),
-                                            dcc.Input(
-                                                type="text",
-                                                inputMode="decimal",
-                                                className="experiment-cut-input",
-                                            ),
-                                            html.Small(
-                                                "Applies to SpecAnConfig.initial_center_frequency "
-                                                "and SigGenConfig.center_frequency.",
-                                                className="experiment-parameter-help",
-                                            ),
-                                        ],
                                     ),
                                     html.Div(
                                         className="experiment-parameter-grid",
@@ -611,7 +592,7 @@ def _build_experiment_modal_body(
                                                         "Polarization",
                                                         className="experiment-cut-label",
                                                     ),
-                                                    dcc.RadioItems(
+                                                    dcc.Dropdown(
                                                         options=[
                                                             {
                                                                 "label": "Vertical",
@@ -623,8 +604,9 @@ def _build_experiment_modal_body(
                                                             },
                                                         ],
                                                         value="vertical",
-                                                        className="experiment-param-radio-row",
-                                                        labelClassName="experiment-cut-radio-option",
+                                                        clearable=False,
+                                                        searchable=False,
+                                                        className="experiment-param-dropdown",
                                                     ),
                                                 ],
                                             ),
@@ -635,7 +617,7 @@ def _build_experiment_modal_body(
                                                         "Log Level",
                                                         className="experiment-cut-label",
                                                     ),
-                                                    dcc.RadioItems(
+                                                    dcc.Dropdown(
                                                         options=[
                                                             {
                                                                 "label": "DEBUG",
@@ -659,8 +641,9 @@ def _build_experiment_modal_body(
                                                             },
                                                         ],
                                                         value="DEBUG",
-                                                        className="experiment-param-radio-row experiment-param-radio-wrap",
-                                                        labelClassName="experiment-cut-radio-option",
+                                                        clearable=False,
+                                                        searchable=False,
+                                                        className="experiment-param-dropdown",
                                                     ),
                                                 ],
                                             ),
