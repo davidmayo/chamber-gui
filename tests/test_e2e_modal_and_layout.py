@@ -56,6 +56,10 @@ def _first_cut_angle_labels(dash_duo) -> list[str]:
     )
 
 
+def _cut_card_count(dash_duo) -> int:
+    return len(dash_duo.find_elements(".experiment-cut-card"))
+
+
 def test_e2e_layout_renders_expected_panels(dash_duo, sample_csv_path: Path) -> None:
     _start_app(dash_duo, sample_csv_path)
     assert dash_duo.find_element("#hamburger-btn").is_displayed()
@@ -122,12 +126,19 @@ def test_e2e_open_experiment_modal_and_swap_cut_labels(
     _open_experiment_modal(dash_duo)
     assert dash_duo.find_element(".experiment-cuts-column").is_displayed()
     assert dash_duo.find_element(".experiment-parameters-column").is_displayed()
+    assert _cut_card_count(dash_duo) == 1
     assert _first_cut_angle_labels(dash_duo) == [
         "Start Pan Angle",
         "End Pan Angle",
         "Step Pan Angle",
         "Fixed Tilt Angle",
     ]
+
+    add_cut_button = dash_duo.find_element("#experiment-add-cut-btn")
+    dash_duo.driver.execute_script("arguments[0].click();", add_cut_button)
+    WebDriverWait(dash_duo.driver, 5).until(
+        lambda _driver: _cut_card_count(dash_duo) == 2
+    )
 
     dash_duo.driver.execute_script(
         """

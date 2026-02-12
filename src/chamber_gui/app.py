@@ -112,6 +112,8 @@ _PANEL_GROUPS = [
     ),
 ]
 
+_DEFAULT_EXPERIMENT_CUT_COUNT = 1
+
 
 def _build_modal_groups(config: list[dict]) -> html.Div:
     enabled_ids = {item["id"] for item in config if item["enabled"]}
@@ -214,6 +216,15 @@ def _cut_axis_labels(orientation: str) -> tuple[str, str, str, str]:
     )
 
 
+def _normalize_cut_count(value: object) -> int:
+    """Normalizes cut count state to a valid positive integer."""
+    try:
+        count = int(value)
+    except (TypeError, ValueError):
+        return _DEFAULT_EXPERIMENT_CUT_COUNT
+    return max(_DEFAULT_EXPERIMENT_CUT_COUNT, count)
+
+
 def _build_experiment_cut_card(index: int) -> html.Div:
     """Builds one mockup cut card for the experiment designer modal."""
     start_label, end_label, step_label, fixed_label = _cut_axis_labels("horizontal")
@@ -226,12 +237,12 @@ def _build_experiment_cut_card(index: int) -> html.Div:
                 children=[
                     html.Span("⠿", className="experiment-cut-drag-handle"),
                     html.Label(
-                        className="experiment-cut-field",
+                        className="experiment-cut-field experiment-cut-id-field",
                         children=[
                             html.Span("Cut ID", className="experiment-cut-label"),
                             dcc.Input(
                                 type="text",
-                                className="experiment-cut-input",
+                                className="experiment-cut-input experiment-cut-id-input",
                                 placeholder=f"cut-{index + 1}",
                             ),
                         ],
@@ -270,7 +281,11 @@ def _build_experiment_cut_card(index: int) -> html.Div:
                                 id={"type": "exp-cut-start-label", "index": index},
                                 className="experiment-cut-label experiment-cut-angle-label",
                             ),
-                            dcc.Input(type="number", className="experiment-cut-input"),
+                            dcc.Input(
+                                type="text",
+                                inputMode="decimal",
+                                className="experiment-cut-input experiment-cut-angle-input",
+                            ),
                         ],
                     ),
                     html.Label(
@@ -281,7 +296,11 @@ def _build_experiment_cut_card(index: int) -> html.Div:
                                 id={"type": "exp-cut-end-label", "index": index},
                                 className="experiment-cut-label experiment-cut-angle-label",
                             ),
-                            dcc.Input(type="number", className="experiment-cut-input"),
+                            dcc.Input(
+                                type="text",
+                                inputMode="decimal",
+                                className="experiment-cut-input experiment-cut-angle-input",
+                            ),
                         ],
                     ),
                     html.Label(
@@ -292,7 +311,11 @@ def _build_experiment_cut_card(index: int) -> html.Div:
                                 id={"type": "exp-cut-step-label", "index": index},
                                 className="experiment-cut-label experiment-cut-angle-label",
                             ),
-                            dcc.Input(type="number", className="experiment-cut-input"),
+                            dcc.Input(
+                                type="text",
+                                inputMode="decimal",
+                                className="experiment-cut-input experiment-cut-angle-input",
+                            ),
                         ],
                     ),
                     html.Label(
@@ -303,7 +326,11 @@ def _build_experiment_cut_card(index: int) -> html.Div:
                                 id={"type": "exp-cut-fixed-label", "index": index},
                                 className="experiment-cut-label experiment-cut-angle-label",
                             ),
-                            dcc.Input(type="number", className="experiment-cut-input"),
+                            dcc.Input(
+                                type="text",
+                                inputMode="decimal",
+                                className="experiment-cut-input experiment-cut-angle-input",
+                            ),
                         ],
                     ),
                 ],
@@ -312,8 +339,11 @@ def _build_experiment_cut_card(index: int) -> html.Div:
     )
 
 
-def _build_experiment_modal_body() -> html.Div:
+def _build_experiment_modal_body(
+    cut_count: int = _DEFAULT_EXPERIMENT_CUT_COUNT,
+) -> html.Div:
     """Builds the mockup body content for the experiment designer modal."""
+    normalized_cut_count = _normalize_cut_count(cut_count)
     return html.Div(
         id="experiment-modal-body",
         className="experiment-modal-body",
@@ -325,12 +355,13 @@ def _build_experiment_modal_body() -> html.Div:
                     html.Div(
                         className="experiment-cut-list",
                         children=[
-                            _build_experiment_cut_card(0),
-                            _build_experiment_cut_card(1),
+                            _build_experiment_cut_card(index)
+                            for index in range(normalized_cut_count)
                         ],
                     ),
                     html.Button(
                         "Add Cut",
+                        id="experiment-add-cut-btn",
                         type="button",
                         className="experiment-add-cut-btn",
                     ),
@@ -570,6 +601,29 @@ def create_app(csv_path: Path, poll_interval_ms: int = 1000) -> Dash:
         return "experiment-modal-overlay", "hamburger-dropdown hidden"
 
     @app.callback(
+        Output("experiment-cut-count", "data"),
+        Input("open-experiment-btn", "n_clicks"),
+        Input("experiment-add-cut-btn", "n_clicks"),
+        State("experiment-cut-count", "data"),
+        prevent_initial_call=True,
+    )
+    def _set_experiment_cut_count(_open_clicks, _add_clicks, current_cut_count):
+        if ctx.triggered_id == "open-experiment-btn":
+            return _DEFAULT_EXPERIMENT_CUT_COUNT
+        if ctx.triggered_id == "experiment-add-cut-btn":
+            return _normalize_cut_count(current_cut_count) + 1
+        return dash.no_update
+
+    @app.callback(
+        Output("experiment-modal-body", "children"),
+        Input("experiment-cut-count", "data"),
+    )
+    def _render_experiment_modal_body(cut_count_data):
+        return _build_experiment_modal_body(
+            cut_count=_normalize_cut_count(cut_count_data)
+        ).children
+
+    @app.callback(
         Output("experiment-modal-overlay", "className", allow_duplicate=True),
         Input("close-experiment-btn", "n_clicks"),
         prevent_initial_call=True,
@@ -715,7 +769,9 @@ def _build_layout(poll_interval_ms: int, source_config: dict) -> html.Div:
                                     ),
                                 ],
                             ),
-                            _build_experiment_modal_body(),
+                            _build_experiment_modal_body(
+                                cut_count=_DEFAULT_EXPERIMENT_CUT_COUNT
+                            ),
                         ],
                     ),
                 ],
@@ -749,6 +805,11 @@ def _build_layout(poll_interval_ms: int, source_config: dict) -> html.Div:
             dcc.Store(id="cut-mode", storage_type="local", data=DEFAULT_CUT_MODE),
             dcc.Store(id="source-config", storage_type="memory", data=source_config),
             dcc.Store(id="hpbw-enabled", storage_type="local", data=False),
+            dcc.Store(
+                id="experiment-cut-count",
+                storage_type="memory",
+                data=_DEFAULT_EXPERIMENT_CUT_COUNT,
+            ),
             dcc.Interval(id="poll-interval", interval=poll_interval_ms, n_intervals=0),
         ],
     )

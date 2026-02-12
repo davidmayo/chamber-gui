@@ -20,6 +20,7 @@ from chamber_gui.app import (
     _format_number,
     _format_timestamp,
     _graph_panel,
+    _normalize_cut_count,
     _normalize_config,
     _safe_latest_row,
     create_app,
@@ -127,6 +128,13 @@ def test_cut_axis_labels_returns_expected_pan_or_tilt_fields() -> None:
     )
 
 
+def test_normalize_cut_count_enforces_positive_integer() -> None:
+    assert _normalize_cut_count(None) == 1
+    assert _normalize_cut_count("bad") == 1
+    assert _normalize_cut_count(0) == 1
+    assert _normalize_cut_count(3) == 3
+
+
 def test_build_experiment_cut_card_has_expected_shape() -> None:
     card = _build_experiment_cut_card(index=1)
     props = card.to_plotly_json()["props"]
@@ -135,6 +143,12 @@ def test_build_experiment_cut_card_has_expected_shape() -> None:
     header = props["children"][0]
     assert header.className == "experiment-cut-card-header"
     assert header.children[0].className == "experiment-cut-drag-handle"
+    assert "experiment-cut-id-field" in header.children[1].className
+    assert (
+        "experiment-cut-id-input"
+        in header.children[1].children[1].to_plotly_json()["props"]["className"]
+    )
+    assert header.children[1].children[1].to_plotly_json()["props"]["type"] == "text"
     assert header.children[2].className == "experiment-cut-delete-btn"
     orientation = props["children"][1]
     assert orientation.children[1].to_plotly_json()["props"]["id"] == {
@@ -144,6 +158,9 @@ def test_build_experiment_cut_card_has_expected_shape() -> None:
     fields_grid = props["children"][2]
     first_angle_label = fields_grid.children[0].children[0].children
     assert first_angle_label == "Start Pan Angle"
+    assert (
+        fields_grid.children[0].children[1].to_plotly_json()["props"]["type"] == "text"
+    )
 
 
 def test_build_experiment_modal_body_contains_cuts_and_parameters_sections() -> None:
@@ -156,6 +173,14 @@ def test_build_experiment_modal_body_contains_cuts_and_parameters_sections() -> 
     assert cuts_column.children[0].children == "Cuts"
     assert params_column.children[0].children == "Parameters"
     assert cuts_column.children[2].className == "experiment-add-cut-btn"
+    assert cuts_column.children[2].id == "experiment-add-cut-btn"
+    assert len(cuts_column.children[1].children) == 1
+
+
+def test_build_experiment_modal_body_renders_requested_cut_count() -> None:
+    body = _build_experiment_modal_body(cut_count=3)
+    cuts_column = body.to_plotly_json()["props"]["children"][0]
+    assert len(cuts_column.children[1].children) == 3
 
 
 def test_graph_panel_has_expected_id_and_graph() -> None:

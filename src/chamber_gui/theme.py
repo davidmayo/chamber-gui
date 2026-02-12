@@ -381,7 +381,7 @@ APP_INDEX_TEMPLATE = """
                 overflow-y: auto;
                 display: flex;
                 flex-direction: column;
-                gap: 10px;
+                gap: 8px;
                 padding-right: 4px;
             }
             .experiment-cut-card {
@@ -389,23 +389,22 @@ APP_INDEX_TEMPLATE = """
                 border-radius: 10px;
                 background: rgba(255, 255, 255, 0.88);
                 box-shadow: 0 4px 12px rgba(39, 64, 90, 0.1);
-                padding: 12px;
+                padding: 8px 10px;
                 display: flex;
                 flex-direction: column;
-                gap: 10px;
+                gap: 6px;
             }
             .experiment-cut-card-header {
                 display: flex;
-                align-items: end;
-                gap: 10px;
+                align-items: center;
+                gap: 8px;
             }
             .experiment-cut-drag-handle {
                 color: var(--muted);
                 cursor: grab;
                 user-select: none;
-                font-size: 1.1rem;
+                font-size: 1rem;
                 line-height: 1;
-                margin-bottom: 8px;
             }
             .experiment-cut-drag-handle:active {
                 cursor: grabbing;
@@ -413,23 +412,37 @@ APP_INDEX_TEMPLATE = """
             .experiment-cut-field {
                 display: flex;
                 flex-direction: column;
-                gap: 4px;
+                gap: 3px;
                 min-width: 0;
             }
+            .experiment-cut-id-field {
+                flex: 1;
+                min-width: 220px;
+            }
             .experiment-cut-label {
-                font-size: 0.8rem;
+                font-size: 0.72rem;
                 color: var(--muted);
                 text-transform: uppercase;
                 letter-spacing: 0.03em;
+                line-height: 1.15;
             }
             .experiment-cut-input {
                 width: 100%;
                 border: 1px solid var(--line);
                 border-radius: 7px;
-                padding: 7px 8px;
-                font-size: 0.9rem;
+                padding: 4px 7px;
+                font-size: 0.88rem;
                 background: rgba(255, 255, 255, 0.95);
                 color: var(--text);
+            }
+            .experiment-cut-id-input {
+                min-width: 220px;
+                max-width: 340px;
+                padding: 6px 8px;
+                font-size: 0.95rem;
+            }
+            .experiment-cut-angle-input {
+                min-width: 0;
             }
             .experiment-cut-delete-btn {
                 margin-left: auto;
@@ -437,8 +450,8 @@ APP_INDEX_TEMPLATE = """
                 background: white;
                 color: var(--muted);
                 border-radius: 6px;
-                padding: 6px 10px;
-                font-size: 0.82rem;
+                padding: 4px 10px;
+                font-size: 0.78rem;
                 cursor: pointer;
                 white-space: nowrap;
             }
@@ -447,25 +460,25 @@ APP_INDEX_TEMPLATE = """
             }
             .experiment-cut-orientation {
                 display: flex;
-                flex-direction: column;
-                gap: 4px;
+                align-items: center;
+                gap: 8px;
             }
             .experiment-cut-radio {
                 display: flex;
-                gap: 12px;
+                gap: 10px;
                 flex-wrap: wrap;
             }
             .experiment-cut-radio-option {
                 display: inline-flex;
                 align-items: center;
-                gap: 4px;
-                font-size: 0.9rem;
+                gap: 3px;
+                font-size: 0.84rem;
                 color: var(--text);
             }
             .experiment-cut-fields-grid {
                 display: grid;
-                grid-template-columns: repeat(2, minmax(0, 1fr));
-                gap: 8px;
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+                gap: 6px;
             }
             .experiment-add-cut-btn {
                 align-self: flex-start;
@@ -473,8 +486,8 @@ APP_INDEX_TEMPLATE = """
                 background: var(--accent);
                 color: white;
                 border-radius: 8px;
-                padding: 8px 14px;
-                font-size: 0.9rem;
+                padding: 7px 14px;
+                font-size: 0.88rem;
                 cursor: pointer;
             }
             .experiment-parameters-placeholder {
@@ -499,6 +512,9 @@ APP_INDEX_TEMPLATE = """
                     border-right: none;
                     border-bottom: 1px solid var(--line);
                 }
+                .experiment-cut-fields-grid {
+                    grid-template-columns: repeat(2, minmax(0, 1fr));
+                }
             }
             @media (max-width: 720px) {
                 .experiment-cut-card-header {
@@ -508,8 +524,19 @@ APP_INDEX_TEMPLATE = """
                 .experiment-cut-delete-btn {
                     margin-left: 0;
                 }
+                .experiment-cut-orientation {
+                    flex-direction: column;
+                    align-items: flex-start;
+                }
                 .experiment-cut-fields-grid {
                     grid-template-columns: minmax(0, 1fr);
+                }
+                .experiment-cut-id-field {
+                    min-width: 0;
+                }
+                .experiment-cut-id-input {
+                    min-width: 0;
+                    max-width: none;
                 }
             }
             @media (max-width: 650px) {
