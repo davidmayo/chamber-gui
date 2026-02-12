@@ -171,3 +171,21 @@ def test_e2e_open_experiment_modal_and_swap_cut_labels(
         "Step Tilt Angle",
         "Fixed Pan Angle",
     ]
+
+
+def test_e2e_done_shows_experiment_parameters_json(
+    dash_duo, sample_csv_path: Path
+) -> None:
+    _start_app(dash_duo, sample_csv_path)
+    _open_experiment_modal(dash_duo)
+
+    done_button = dash_duo.find_element("#close-experiment-btn")
+    dash_duo.driver.execute_script("arguments[0].click();", done_button)
+    dash_duo.wait_for_element_by_css_selector(
+        "#experiment-result-modal-overlay.experiment-result-modal-overlay:not(.hidden)",
+        timeout=10,
+    )
+    json_text = dash_duo.find_element("#experiment-result-modal-json").text
+    assert '"cuts"' in json_text
+    assert '"sig_gen_config"' in json_text
+    assert '"spec_an_config"' in json_text

@@ -10,11 +10,14 @@ import pytest
 
 from chamber_gui.app import (
     _build_experiment_cut_card,
+    _build_cuts_payload,
+    _build_experiment_parameters_payload,
     _build_experiment_modal_body,
     _build_info_panel,
     _build_modal_groups,
     _build_modal_items,
     _build_source_status,
+    _coerce_optional_float,
     _cut_axis_labels,
     _default_config,
     _format_number,
@@ -22,6 +25,7 @@ from chamber_gui.app import (
     _graph_panel,
     _normalize_cut_keys,
     _normalize_config,
+    _parse_search_spans,
     _safe_latest_row,
     create_app,
 )
@@ -37,6 +41,9 @@ def test_create_app_layout_contains_expected_ids() -> None:
     assert "panel-info" in layout_repr
     assert "open-experiment-btn" in layout_repr
     assert "experiment-modal-overlay" in layout_repr
+    assert "experiment-result-modal-overlay" in layout_repr
+    assert "experiment-cut-sync-btn" in layout_repr
+    assert "experiment-pending-cut-order" in layout_repr
 
 
 def test_create_app_disables_update_title() -> None:
@@ -138,26 +145,28 @@ def test_build_experiment_cut_card_has_expected_shape() -> None:
     card = _build_experiment_cut_card(index=7, display_index=2)
     props = card.to_plotly_json()["props"]
     assert props["className"] == "experiment-cut-card"
-    assert props["draggable"] == "true"
+    assert props["draggable"] == "false"
+    assert props["data-cut-key"] == "7"
     header = props["children"][0]
     assert header.className == "experiment-cut-card-header"
     assert header.children[0].className == "experiment-cut-drag-handle"
     assert "experiment-cut-id-field" in header.children[1].className
-    assert (
-        "experiment-cut-id-input"
-        in header.children[1].children[1].to_plotly_json()["props"]["className"]
-    )
-    assert header.children[1].children[1].to_plotly_json()["props"]["type"] == "text"
-    assert (
-        header.children[1].children[1].to_plotly_json()["props"]["placeholder"]
-        == "cut-3"
-    )
+    cut_id_input_props = header.children[1].children[1].to_plotly_json()["props"]
+    assert "experiment-cut-id-input" in cut_id_input_props["className"]
+    assert cut_id_input_props["id"] == {"type": "exp-cut-id-input", "index": 7}
+    assert cut_id_input_props["type"] == "text"
+    assert cut_id_input_props["placeholder"] == "cut-3"
+    assert cut_id_input_props["value"] == "cut-3"
+    assert cut_id_input_props["persistence"] is True
+    assert cut_id_input_props["persistence_type"] == "memory"
     radio = header.children[2].to_plotly_json()["props"]
     assert radio["id"] == {
         "type": "exp-cut-orientation",
         "index": 7,
     }
     assert radio["className"] == "experiment-cut-radio"
+    assert radio["persistence"] is True
+    assert radio["persistence_type"] == "memory"
     delete_button = header.children[3].to_plotly_json()["props"]
     assert delete_button["className"] == "experiment-cut-delete-btn"
     assert delete_button["children"] == "X"
@@ -165,9 +174,14 @@ def test_build_experiment_cut_card_has_expected_shape() -> None:
     fields_grid = props["children"][1]
     first_angle_label = fields_grid.children[0].children[0].children
     assert first_angle_label == "Start Pan Angle"
-    assert (
-        fields_grid.children[0].children[1].to_plotly_json()["props"]["type"] == "text"
+    first_angle_input_props = (
+        fields_grid.children[0].children[1].to_plotly_json()["props"]
     )
+    assert first_angle_input_props["id"] == {"type": "exp-cut-start-input", "index": 7}
+    assert first_angle_input_props["type"] == "text"
+    assert first_angle_input_props["value"] == "-180"
+    assert first_angle_input_props["persistence"] is True
+    assert first_angle_input_props["persistence_type"] == "memory"
 
 
 def test_build_experiment_modal_body_contains_cuts_and_parameters_sections() -> None:
@@ -207,6 +221,63 @@ def test_build_experiment_modal_body_renders_requested_cut_count() -> None:
     body = _build_experiment_modal_body(cut_keys=[0, 5, 8])
     cuts_column = body.to_plotly_json()["props"]["children"][0]
     assert len(cuts_column.children[1].children) == 3
+
+
+def test_coerce_optional_float_parses_numeric_and_blank_values() -> None:
+    assert _coerce_optional_float("1.25", field_name="x") == 1.25
+    assert _coerce_optional_float(" ", field_name="x") is None
+    assert _coerce_optional_float(None, field_name="x") is None
+    with pytest.raises(ValueError):
+        _coerce_optional_float("bad", field_name="x")
+
+
+def test_parse_search_spans_handles_blank_and_comma_separated_values() -> None:
+    assert _parse_search_spans(None) is None
+    assert _parse_search_spans(" ") is None
+    assert _parse_search_spans("1e6, 5e5, 1e5") == [1_000_000.0, 500_000.0, 100_000.0]
+    with pytest.raises(ValueError):
+        _parse_search_spans("1e6, nope")
+
+
+def test_build_cuts_payload_raises_on_duplicate_cut_ids() -> None:
+    with pytest.raises(ValueError, match="Duplicate Cut ID"):
+        _build_cuts_payload(
+            cut_keys=[0, 1],
+            cut_ids=["dup", "dup"],
+            orientations=["horizontal", "vertical"],
+            starts=["-180", "0"],
+            ends=["180", "90"],
+            steps=["5", "5"],
+            fixeds=["0", "0"],
+        )
+
+
+def test_build_experiment_parameters_payload_maps_center_frequency_to_both_configs() -> (
+    None
+):
+    payload = _build_experiment_parameters_payload(
+        cut_keys=[0],
+        short_description="exp",
+        long_description="desc",
+        center_frequency="10000000000",
+        neutral_elevation="0",
+        sig_gen_power="-10",
+        sig_gen_vernier_power="0",
+        spec_an_reference_level="0",
+        spec_an_span="1000000",
+        spec_an_search_spans="1000000, 500000",
+        polarization="vertical",
+        log_level="DEBUG",
+        data_collection=["collect_center_frequency_data", "collect_peak_data"],
+        cut_ids=["cut-a"],
+        orientations=["horizontal"],
+        starts=["-180"],
+        ends=["180"],
+        steps=["5"],
+        fixeds=["0"],
+    )
+    assert payload["sig_gen_config"]["center_frequency"] == 10_000_000_000.0
+    assert payload["spec_an_config"]["initial_center_frequency"] == 10_000_000_000.0
 
 
 def test_graph_panel_has_expected_id_and_graph() -> None:

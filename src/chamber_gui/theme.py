@@ -394,6 +394,13 @@ APP_INDEX_TEMPLATE = """
                 flex-direction: column;
                 gap: 6px;
             }
+            .experiment-cut-card.dragging {
+                opacity: 0.66;
+            }
+            .experiment-cut-card.drag-over {
+                border-color: var(--accent);
+                box-shadow: 0 0 0 2px rgba(211, 85, 36, 0.2);
+            }
             .experiment-cut-card-header {
                 display: flex;
                 align-items: center;
@@ -579,11 +586,70 @@ APP_INDEX_TEMPLATE = """
             .experiment-specan-details-btn:hover {
                 background: var(--bg0);
             }
+            .experiment-result-modal-overlay {
+                position: fixed;
+                inset: 0;
+                background: rgba(31, 41, 51, 0.45);
+                z-index: 2200;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 22px;
+            }
+            .experiment-result-modal-overlay.hidden {
+                display: none;
+            }
+            .experiment-result-modal-dialog {
+                width: min(860px, 92vw);
+                height: min(760px, 86vh);
+                background: var(--panel);
+                border: 1px solid var(--line);
+                border-radius: 14px;
+                box-shadow: 0 16px 48px rgba(39, 64, 90, 0.35);
+                overflow: hidden;
+                display: flex;
+                flex-direction: column;
+            }
+            .experiment-result-modal-header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 14px 18px;
+                border-bottom: 1px solid var(--line);
+            }
+            .experiment-result-modal-header h3 {
+                margin: 0;
+                color: var(--accent);
+            }
+            .experiment-result-modal-close-btn {
+                background: var(--accent);
+                color: white;
+                border: none;
+                border-radius: 7px;
+                padding: 6px 12px;
+                font-size: 0.86rem;
+                cursor: pointer;
+            }
+            .experiment-result-modal-json {
+                margin: 0;
+                padding: 14px 16px;
+                overflow: auto;
+                white-space: pre;
+                font-size: 0.82rem;
+                line-height: 1.4;
+                color: var(--text);
+                background: rgba(255, 255, 255, 0.95);
+                flex: 1;
+            }
             @media (max-width: 980px) {
                 .experiment-modal-dialog {
                     width: 94vw;
                     height: 88vh;
                     min-height: 0;
+                }
+                .experiment-result-modal-dialog {
+                    width: 95vw;
+                    height: 88vh;
                 }
                 .experiment-modal-body {
                     grid-template-columns: minmax(0, 1fr);

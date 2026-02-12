@@ -27,6 +27,8 @@ def test_app_index_template_contains_expected_css_hooks() -> None:
         ".experiment-modal-body",
         ".experiment-cut-card",
         ".experiment-add-cut-btn",
+        ".experiment-result-modal-overlay",
+        ".experiment-result-modal-json",
         ".experiment-parameters-scroll",
         ".experiment-parameter-group",
         ".experiment-specan-details-btn",
